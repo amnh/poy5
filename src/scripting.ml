@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3520 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3526 $"
 
 let (-->) a b = b a
 
@@ -3743,10 +3743,8 @@ let rec folder (run : r) meth =
                 TreeSearch.sets m.Methods.tabu_join run.data run.trees 
             in
             let do_search run = match is_forest meth with
-                | Some cost ->
-                    PTS.forest_search run.data run.queue cost meth run.trees
-                | None ->
-                    PTS.find_local_optimum run.data run.queue run.trees sets meth
+                | Some c -> PTS.forest_search run.data run.queue c meth run.trees
+                | None   -> PTS.find_local_optimum run.data run.queue run.trees sets meth
             in
             begin match TreeSearch.get_transformations meth with
                 | [] ->
@@ -3760,18 +3758,16 @@ let rec folder (run : r) meth =
                     { run with trees = run.trees }
                 | trans ->
                     let runs = explode_trees run in
-                    let runs = 
+                    let runs =
                         Sexpr.map_status
                             "Transforming each tree independently"
-                            ~eta:true (temporary_transforms trans) 
+                            ~eta:true (temporary_transforms trans)
                             runs
                     in
                     let run_and_untransform (run, untransforms) =
                         let trees = do_search run in
                         let run = { run with trees = trees } in
-                        let run = 
-                            List.fold_left (fun r f -> f r) run untransforms
-                        in
+                        let run = List.fold_left (fun r f -> f r) run untransforms in
                         Sexpr.first run.trees
                     in
                     let trees = Sexpr.map run_and_untransform runs in

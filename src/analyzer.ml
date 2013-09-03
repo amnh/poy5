@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3522 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3526 $"
 
 let debug = false
 
@@ -329,7 +329,7 @@ let dependency_relations (init : Methods.script) = match init with
             and `LocalOptimum tmp = meth in
             match tmp.Methods.tabu_join with
               | `Partition x when not (constrain x) ->
-                  [(datantrees, [Trees], init, NonComposable)] 
+                  [(datantrees, [Trees], init, NonComposable)]
               | _ ->
                   [(datantrees, [Trees], init, Parallelizable)]
         in
@@ -693,41 +693,39 @@ let rec get_tip next_command =
     | Concurrent _
     | InteractiveState _ -> generate_this_tip false
     | Tree x ->
-            match x.exploders with
-            | NonComposable -> generate_this_tip false
-            | InteractivePoint 
-            | Composable -> generate_this_tip true
-            | ExitPoint -> generate_this_tip false
-            | Linnearizable 
-            | Invariant -> recurse_to_find_tip x
-            | Parallelizable -> 
-                    (* Hum we can parallelize this step, can we? The important
-                    * thing is that if we get a tree, we should output excatly
-                    * one tree again, and that we don't require all the trees
-                    * from the previous command in one single group to perform
-                    * the operations *)
-                    match x.run with
-                    | `PerturbateNSearch _ -> recurse_to_find_tip x
-                    | `Build (_, y, _, _) ->
-                            (match y with
-                            | `Constraint (_, _, None, _) -> 
-                                    (* Hum, we need to collect all of the trees
-                                    * before *)
-                                    generate_this_tip false
-                            | _ -> recurse_to_find_tip x)
-                    | `LocalOptimum (l_opt) ->
-                            if List.exists (fun x -> x = `KeepBestTrees)
-                            l_opt.Methods.samples then
-                                generate_this_tip false
-                            else 
-                                (match l_opt.Methods.tabu_join with
-                                | `Partition y -> 
-                                        if List.exists (function `ConstraintFile
-                                        _ -> true | _ -> false) y then
-                                            recurse_to_find_tip x
-                                        else generate_this_tip true
-                                | _ -> recurse_to_find_tip x)
-                    | _ -> assert false
+        begin match x.exploders with
+          | NonComposable -> generate_this_tip false
+          | InteractivePoint
+          | Composable    -> generate_this_tip true
+          | ExitPoint     -> generate_this_tip false
+          | Linnearizable
+          | Invariant     -> recurse_to_find_tip x
+          | Parallelizable->
+              (* Hum we can parallelize this step, can we? The important thing is
+                that if we get a tree, we should output excatly one tree again,
+                and that we don't require all the trees from the previous command
+                in one single group to perform the operations *)
+              begin match x.run with
+                | `PerturbateNSearch _ -> recurse_to_find_tip x
+                | `Build (_, y, _, _) ->
+                    begin match y with
+                      | `Constraint (_, _, None, _) -> generate_this_tip false
+                      | _ -> recurse_to_find_tip x
+                    end
+                | `LocalOptimum (l_opt) ->
+                    if List.exists (fun x -> x = `KeepBestTrees) l_opt.Methods.samples
+                    then generate_this_tip false
+                    else
+                        begin match l_opt.Methods.tabu_join with
+                        | `Partition y ->
+                          if List.exists (function `ConstraintFile _ -> true | _ -> false) y
+                              then recurse_to_find_tip x
+                              else generate_this_tip true
+                        | _ -> recurse_to_find_tip x
+                        end
+                | _ -> assert false
+              end
+        end
 
 (* Convert any parallelizable section of the tree into it. *)
 let rec explode_tree tree = 
@@ -777,12 +775,13 @@ let rec explode_tree tree =
                         do_not_parallelize_me_but_recurse ()
                     else 
                         (match l_opt.Methods.tabu_join with
+(*                         | _ when l_opt.Methods.parallel -> *)
+(*                             do_not_parallelize_me_but_recurse () *)
                         | `Partition x ->
-                                if List.exists 
-                                (function `ConstraintFile _ -> true 
-                                    | _ -> false) x then
-                                    parallelize_this_command ()
-                                else do_not_parallelize_me_but_recurse ()
+                            if List.exists 
+                                (function `ConstraintFile _ -> true | _ -> false) x
+                            then parallelize_this_command ()
+                            else do_not_parallelize_me_but_recurse ()
                         | _ -> parallelize_this_command ())
             | _ -> Tree {x with children = List.map explode_tree x.children})
     | Concurrent x ->
@@ -1008,88 +1007,71 @@ let simplify_store_set script =
                         if used_contents = original_contents then
                             (item :: result), used_items, modified
                         else
-                            (((`Store (used_contents, name)) :: result),
-                            used_items, true)
+                            (((`Store (used_contents, name)) :: result), used_items, true)
                     else (result, used_items, true)
                 else (item :: result), used_items, modified
         | `Set ([], name) -> result, used_items, modified
         | `Set (original_contents, name) ->
                 if is_poy_internal_name name then
                     let used_contents = 
-                        if All_sets.StringMap.mem name used_items then
-                                merge_contents original_contents 
-                                (All_sets.StringMap.find name used_items)
-                        else original_contents
+                        if All_sets.StringMap.mem name used_items
+                          then merge_contents original_contents (All_sets.StringMap.find name used_items)
+                          else original_contents
                     in
                     let used_items = 
-                        All_sets.StringMap.add name used_contents
-                        used_items
+                        All_sets.StringMap.add name used_contents used_items
                     in
                     (item :: result), used_items, modified
-                else (item :: result), used_items, modified
+                else
+                    (item :: result), used_items, modified
         | `Repeat (n, script) ->
                 let (script, used_items, modified) =
-                    List.fold_right simplify_one script ([], used_items,
-                    modified)
+                    List.fold_right simplify_one script ([], used_items, modified)
                 in
                 (`Repeat (n, script)) :: result, used_items, modified
         | `GatherTrees (script1, script2) ->
                 let (script1, used_items, modified) = 
-                    List.fold_right simplify_one script1 
-                    ([], used_items, modified) 
+                    List.fold_right simplify_one script1 ([], used_items, modified) 
                 in
                 let (script2, used_items, modified) = 
-                    List.fold_right simplify_one script2 
-                    ([], used_items, modified)
+                    List.fold_right simplify_one script2 ([], used_items, modified)
                 in
-                `GatherTrees (script1, script2) :: result, used_items, 
-                modified
+                `GatherTrees (script1, script2) :: result, used_items, modified
         | `OnEachTree (script1, script2) ->
                 let (script1, used_items, modified) = 
-                    List.fold_right simplify_one script1 
-                    ([], used_items, modified) 
+                    List.fold_right simplify_one script1 ([], used_items, modified) 
                 in
                 let (script2, used_items, modified) = 
-                    List.fold_right simplify_one script2 
-                    ([], used_items, modified)
+                    List.fold_right simplify_one script2 ([], used_items, modified)
                 in
-                `OnEachTree (script1, script2) :: result, used_items, 
-                modified
+                `OnEachTree (script1, script2) :: result, used_items, modified
         | `ParallelPipeline (c, l1, l2, l3) ->
-                let stores = 
+                let stores =
                     List.find_all (function `Store _ -> true | _ -> false) l2
                 in
                 let l3, used_items, modified =
-                    List.fold_right simplify_one l3
-                    ([], used_items, modified)
+                    List.fold_right simplify_one l3 ([], used_items, modified)
                 in
                 let l2, used_items, modified =
-                    List.fold_right simplify_one l2
-                    ([], used_items, modified)
+                    List.fold_right simplify_one l2 ([], used_items, modified)
                 in
                 let l1, used_items, modified =
-                    List.fold_right simplify_one l1
-                    ([], used_items, modified)
+                    List.fold_right simplify_one l1 ([], used_items, modified)
                 in
-                let l3 =
-                    match l3 with
+                let l3 = match l3 with
                     | `GetStored :: `Set _ :: t -> `GetStored :: (stores @ t)
                     | `GetStored :: t -> `GetStored :: (stores @ t)
                     | t -> stores @ t
-                and l2 = List.filter (function `Set _ -> false | _ -> true) l2 
-                and l1 = 
-                    match List.rev l1 with
+                and l2 = List.filter (function `Set _ -> false | _ -> true) l2
+                and l1 = match List.rev l1 with
                     | `Store _ :: t -> List.rev t
                     | t -> List.rev t
                 in
-                `ParallelPipeline (c, l1, l2, l3) :: result, used_items,
-                modified
+                `ParallelPipeline (c, l1, l2, l3) :: result, used_items, modified
         | item -> (item :: result), used_items, modified
     in
     let list_minus a b =
-        let res = 
-            List.filter (fun x -> not (List.exists (fun y -> x = y) b)) a
-        in
+        let res = List.filter (fun x -> not (List.exists (fun y -> x = y) b)) a in
         (List.length a <> List.length res), res
     in
     let has_state item lst = List.exists (fun x -> x = item) lst in
@@ -1100,16 +1082,16 @@ let simplify_store_set script =
         treestate, datastate
     in
     let is_filtered_and_modify items element name current_name =
-        let tmp_current_name =
-            match current_name with
+        let tmp_current_name = match current_name with
             | Some x -> x
             | None -> "__poy4_bleh"
         in
         let has_it = has_state element items in
         if has_it && name = tmp_current_name then
             remove_state element items, true, 
-            (if has_it then Some name else current_name)
-        else items, false, (if has_it then Some name else current_name)
+                (if has_it then Some name else current_name)
+        else
+            items, false, (if has_it then Some name else current_name)
     in
     let stored_items = ref All_sets.Strings.empty in
     let rec remove_useless ((treestate, datastate) as acc) (list :
@@ -1125,8 +1107,7 @@ let simplify_store_set script =
                             let ar, acc, am = remove_useless acc a in
                             let br, acc, bm = remove_useless acc b in
                             let dr, acc, dm = remove_useless acc d in
-                            (`ParallelPipeline (c, ar, br, dr)), acc, 
-                            (am || bm || dm)
+                            (`ParallelPipeline (c, ar, br, dr)), acc, (am || bm || dm)
                     | `OnEachTree (a, b) ->
                             let ar, acc, am = remove_useless acc a in
                             let br, acc, bm = remove_useless acc b in
@@ -1301,9 +1282,7 @@ let rec linearize2 queue acc =
                         in
                     begin match x.run with
                         | `Build (total, b, c, d) ->
-                                let item = 
-                                    Tree { x with run = `Build (1, b, c, d) } 
-                                in
+                                let item = Tree { x with run = `Build (1, b, c, d) } in
                                 let todol = ref []
                                 and composerl = ref []
                                 and nextl = ref [] in
@@ -1311,19 +1290,37 @@ let rec linearize2 queue acc =
                                 linearize2 (single_queue y.composer) composerl;
                                 linearize2 (single_queue y.next) nextl;
                                 let todol =
-                                    deps @ 
-                                    remove_trees_from_set (List.rev !todol)
+                                    deps @ remove_trees_from_set (List.rev !todol)
                                 and nextl = remove_trees_from_set (List.rev !nextl) 
                                 and composerl = 
-                                    remove_trees_from_set (List.rev
-                                    (`StoreTrees :: !composerl))
+                                    remove_trees_from_set (List.rev (`StoreTrees :: !composerl))
                                 in
                                 acc := 
                                     `Store (all_dependencies, my_name) ::
                                         `ParallelPipeline (total, todol, 
                                         `UnionStored :: composerl, 
                                             `GetStored :: nextl) :: (!acc);
-                        | `LocalOptimum _
+                        | `LocalOptimum l ->
+                                let composerl = ref []
+                                and nextl = ref []
+                                and iteml = ref [] in
+                                linearize2 (single_queue y.todo_p) iteml;
+                                linearize2 (single_queue y.composer) composerl;
+                                linearize2 (single_queue y.next) nextl;
+                                let deps = (remove_all_trees_from_set (List.rev deps)) in
+                                let iteml = deps @ remove_trees_from_set (List.rev !iteml)
+                                and nextl = `GetStored :: (List.rev (remove_trees_from_set (List.rev !nextl)))
+                                and compl = `UnionStored :: `StoreTrees :: List.rev !composerl in
+                                if l.Methods.parallel
+                                then
+                                  acc :=
+                                    `Store (all_dependencies, my_name) ::
+                                      (`ParallelPipeline (1,iteml,compl,nextl)) :: (!acc)
+                                else
+                                  acc :=
+                                    nextl @
+                                      `Store (all_dependencies, my_name) ::
+                                        (`OnEachTree (iteml, List.rev !composerl)) :: (!acc)
                         | `PerturbateNSearch _->
                                 let composerl = ref []
                                 and nextl = ref []
@@ -1349,8 +1346,7 @@ let linearize tree _ =
     List.rev !acc
 
 let is_load x = 
-    let check_it x =
-        match x.run with
+    let check_it x = match x.run with
         | `Load _ 
         | `Save _ -> true
         | _ -> false
@@ -1381,79 +1377,60 @@ let entry res =
     Tree v
 
 let make_root_trees script =
-    if debug then
-    Printf.printf "make_root_trees,script lst len=%d\n%!"
-    (List.length script);
     thread_id := 0;
-    script 
-    --> List.map dependency_relations
-    --> List.flatten
-    --> fun x ->
-        List.fold_right (prepend_tree (ref 0)) 
-        (([], 
-        [EntryPoint; Data; Trees; JackBoot; Bremer], 
-        `Entry, NonComposable) :: x) 
-        (([], [], [], [], [], []), []) 
+    script
+      --> List.map dependency_relations
+      --> List.flatten
+      --> fun x ->
+            List.fold_right (prepend_tree (ref 0))
+            (([], [EntryPoint;Data;Trees;JackBoot;Bremer],`Entry,NonComposable)::x)
+            (([], [], [], [], [], []), [])
 
 let post_process_trees res =
-    res 
-    --> List.map (remove_duplications []) 
-    --> List.map 
-        (fun (a, b) ->
-            a :: (List.map (fun (_, x, y) -> 
-                match x with
-                | [] -> y
-                | _ -> failwith "What?") b))
-    --> List.flatten
-    --> List.map explode_tree
+    res
+      --> List.map (remove_duplications [])
+      --> List.map
+          (fun (a, b) ->
+              a :: (List.map (fun (_, x, y) -> match x with
+                              | [] -> y | _ -> failwith "What?") b))
+      --> List.flatten
+      --> List.map explode_tree
 
 let maketree script =
-    let _, res = make_root_trees script in 
+    let _, res = make_root_trees script in
     post_process_trees res
 
-let almost_analyze script = 
+let almost_analyze script =
     let prepare_if_no_exit script =
         if (List.exists (fun x -> x = `Exit) script) then script
         else script @ [`Interactive]
     in
-    let (_, _, _, _, _, channels), res = 
+    let (_, _, _, _, _, channels), res =
         script --> prepare_if_no_exit --> make_root_trees
     in
     let _, channels_subtrees = List.split channels in
-    let channels_subtrees = 
-        List.filter is_load channels_subtrees
-    in
+    let channels_subtrees = List.filter is_load channels_subtrees in
     entry (post_process_trees (res @ channels_subtrees))
 
 (* Take a valid script and make it a memory efficient script, if I can *)
-let analyze (script : Methods.script list) : Methods.script list = 
-    (*
-    let prepare_if_no_exit script =
-        if (List.exists (fun x -> x = `Exit) script) then script
-        else script 
-    in
-    *)
-    if debug then
-    Printf.printf "Analyzer.analyze1,input listlen=%d\n%!"
-    (List.length script);
-    let (_, _, _, _, _, channels), res = 
-        script --> make_root_trees
-    in
+let analyze (script : Methods.script list) : Methods.script list =
+    let (_, _, _, _, _, channels), res = make_root_trees script in
     let _, channels_subtrees = List.split channels in
-    let channels_subtrees = 
-        List.filter is_load channels_subtrees
-    in
+    let channels_subtrees = List.filter is_load channels_subtrees in
     let res = entry (post_process_trees (res @ channels_subtrees)) in
-    let r = simplify_store_set (linearize res []) in 
+    let r = simplify_store_set (linearize res []) in
     Hashtbl.clear thread_table;
     r
 
 let break_in_independent_sections x =
     let a, b =
-        List.fold_right (fun x (cur, acc) ->
-            match x with
-            | `Wipe | `Set _ -> ([], ((x :: cur) :: acc)) 
-            | _ -> (x :: cur), acc) x ([], [])
+        List.fold_right
+            (fun x (cur, acc) -> match x with
+              | `Wipe | `Set _ -> ([],((x::cur)::acc))
+              | `LocalOptimum l when l.Methods.parallel -> ([],((x::cur)::acc))
+              | _ -> (x::cur),acc)
+            x
+            ([],[])
     in
     a :: b
 
@@ -1660,20 +1637,20 @@ let rec script_to_string (init : Methods.script) =
             | `Ci _ -> "@[report ci@]"
             | `Ri _ -> "@[report ri@]"
             | `CompareSequences _ -> "@[report the average distance between pairs of sequences@]"
-            | `FasWinClad _ -> "@[report the phastwinclad file@]"
-            | `Nexus _ -> "@[report the nexus file@]"
-            | `DebugData -> "@[report global data to screen (debug)@]"
-            | `LKSites _ -> "@[report the site loglikelihood of trees@]"
-            | `Model _ -> "@[report the likelihood model@]"
-            | `Dataset _ -> "@[report the current data under analysis@]"
-            | `Xslt _ -> "@[report the current data and trees under analysis@]"
-            | `Nodes _ -> "@[report all unadjusted data in tree@]"
+            | `FasWinClad _       -> "@[report the phastwinclad file@]"
+            | `Nexus _    -> "@[report the nexus file@]"
+            | `DebugData  -> "@[report global data to screen (debug)@]"
+            | `LKSites _  -> "@[report the site loglikelihood of trees@]"
+            | `Model _    -> "@[report the likelihood model@]"
+            | `Dataset _  -> "@[report the current data under analysis@]"
+            | `Xslt _     -> "@[report the current data and trees under analysis@]"
+            | `Nodes _    -> "@[report all unadjusted data in tree@]"
             | `Topo_Selection _ -> "@[report the tree selection p-values@]"
             | `TerminalsFiles _ -> "@[report the terminals per file@]"
             | `RobinsonFoulds _ -> "@[report robinson foulds tree distance matrix@]"
+            | `Supports (_, _)  -> "@[report the support values@]"
             | `CrossReferences (_, _) -> "@[report the cross references@]"
             | `GraphicSupports (_, _)
-            | `Supports (_, _) -> "@[report the support values@]"
             | `Consensus (_, _)
             | `GraphicConsensus (_, _) -> "@[report the consensus@]"
             | `GraphicDiagnosis (reporttype,filename) ->
@@ -1694,17 +1671,16 @@ let rec script_to_string (init : Methods.script) =
                     | None -> "@[report the trees in memory@]"
                     | Some x -> "@[report in " ^ x ^ " the trees in memory@]"
                   end
-            | `Implied_Alignment _ -> "@[report an implied alignment@]"
-            | `TimeDelta _ -> "@[report the time delta@]"
-            | `KolmoMachine _ -> "@[report the complexity of the machine loaded@]"
-            | `TreeCosts _ -> "@[report the cost of the trees@]"
-            | `SearchStats _ -> "@[report the search results@]"
-            | `TreesStats _ -> "@[report the tree statistics@]"
-            | `Clades _ -> "@[create a clades file@]"
-            | `Save (_, _) -> "@[save my memory in a file@]"
-            | `Load _ -> "@[load my memory from a file@]"
-            | `RootName _
-            | `Root _ -> "@[change the root@]"
+            | `Implied_Alignment _-> "@[report an implied alignment@]"
+            | `TimeDelta _        -> "@[report the time delta@]"
+            | `KolmoMachine _     -> "@[report the complexity of the machine loaded@]"
+            | `TreeCosts _        -> "@[report the cost of the trees@]"
+            | `SearchStats _      -> "@[report the search results@]"
+            | `TreesStats _       -> "@[report the tree statistics@]"
+            | `Clades _           -> "@[create a clades file@]"
+            | `Save (_, _)        -> "@[save my memory in a file@]"
+            | `Load _             -> "@[load my memory from a file@]"
+            | `RootName _ |`Root _-> "@[change the root@]"
         in
         res
     | `Plugin _ -> "@[execute a plugin function@]"
@@ -1714,25 +1690,25 @@ let rec script_to_string (init : Methods.script) =
     | `GatherBremer     -> "@[Exchange Bremer values with other processes@]"
     | `GatherBootstrap  -> "@[Exchange Bootstrap values with other processes@]" 
     | `SelectYourTrees  -> "@[Each processor selects the trees it will work on@]"
-    | `Skip             -> "@[SKip@]"
+    | `Skip             -> "@[Skip@]"
     | `StoreTrees       -> "@[Store Trees@]"
     | `UnionStored      -> "@[Get Stored Union Trees@]"
     | `GetStored        -> "@[Get Stored Trees@]"
     | `GatherTrees (a,b)->
-        let header = "@[Exchange trees with other processes@]" in
+        let header = "@[@[Exchange trees with other processes@]" in
         let a_str = "@[First@]"::List.map script_to_string a
-        and b_str = "@[Then@]"::List.map script_to_string b in
+        and b_str = "@[Then@]"::((List.map script_to_string b) @ ["@]"]) in
         String.concat " " (header :: a_str @ b_str)
     | `OnEachTree (a,b) ->
-        let header = "@[Perform on each Tree@]" in
+        let header = "@[@[Perform on each Tree@]" in
         let a_str = "@[First@]"::List.map script_to_string a
-        and b_str = "@[Then@]"::List.map script_to_string b in
+        and b_str = "@[Then@]"::((List.map script_to_string b) @ ["@]"]) in
         String.concat " " (header :: a_str @ b_str)
     | `ParallelPipeline (a,b,c,d) ->
-        let header = Printf.sprintf "@[Parallel Pipeline %d@]" a in
+        let header = Printf.sprintf "@[@[Parallel Pipeline %d@]" a in
         let b_str = "@[First@]"::List.map script_to_string b
         and c_str = "@[Comp@]"::List.map script_to_string c
-        and d_str = "@[Then@]"::List.map script_to_string d in
+        and d_str = "@[Then@]"::((List.map script_to_string d) @ ["@]"]) in
         String.concat " " (header :: b_str @ c_str @ d_str)
 
 
@@ -1967,7 +1943,6 @@ let is_master_only (init : Methods.script) = match init with
     | `Plugin _ 
     | `Version -> true
 
-    (** TODO CHECK ALL SCRIPTS FOR LOCAL/REMOTE FILE ISSUES *)
 let rec make_remote_files (init : Methods.script) =
     let mr = function
         | `Local x | `Remote x -> `Remote x
@@ -1997,6 +1972,11 @@ let rec make_remote_files (init : Methods.script) =
         (function #Methods.build as x -> x | _ -> failwith "Huh?")
         item
     and recursive = List.map make_remote_files in
+    let rec read_opt_mr = function
+      | `InputFile c -> `InputFile (mr c)
+      | `CostMatrix c -> `CostMatrix (mr c)
+      | x             -> x
+    and read_opt_mrl x = List.map read_opt_mr x in
     match init with
     | `ParallelPipeline (a, b, c, d) -> `ParallelPipeline (a, recursive b, recursive c, recursive d) 
     | `OnEachTree (a, b) -> `OnEachTree (recursive a, recursive b)
@@ -2007,9 +1987,10 @@ let rec make_remote_files (init : Methods.script) =
     | `AutoDetect files -> `AutoDetect (mrl files)
     | `PartitionedFile files -> `PartitionedFile (mrl files)
     | `Nucleotides files -> `Nucleotides (mrl files)
-    | `Aminoacids (files,opt) -> `Aminoacids (mrl files,opt)
-    | `GeneralAlphabetSeq (a, b, c) -> `GeneralAlphabetSeq (mrl a, mr b, c)
-    | `Breakinv (a, b, c) -> `Breakinv (mrl a, mr b, c)
+    | `Aminoacids (files,opt) -> `Aminoacids (mrl files, read_opt_mrl opt)
+    | `GeneralAlphabetSeq (a, b, c) ->
+        `GeneralAlphabetSeq (mrl a, mr b, read_opt_mrl c)
+    | `Breakinv (a, b, c) -> `Breakinv (mrl a, mr b, read_opt_mrl c)
     | `Chromosome files -> `Chromosome (mrl files)
     | `Genome files -> `Genome (mrl files)
     | `Prealigned (meth, cost, gap_opening) ->
@@ -2023,9 +2004,12 @@ let rec make_remote_files (init : Methods.script) =
                 | `AutoDetect files -> `AutoDetect (mrl files)
                 | `Nucleotides files -> `Nucleotides (mrl files)
                 | `PartitionedFile files -> `PartitionedFile (mrl files)
-                | `Aminoacids (files,opt) -> `Aminoacids (mrl files,opt)
-                | `GeneralAlphabetSeq (a, b, c) -> `GeneralAlphabetSeq (mrl a, mr b, c)
-                | `Breakinv (a, b, c) -> `Breakinv (mrl a, mr b, c)
+                | `Aminoacids (files,opt) ->
+                    `Aminoacids (mrl files,read_opt_mrl opt)
+                | `GeneralAlphabetSeq (a, b, c) ->
+                    `GeneralAlphabetSeq (mrl a, mr b, read_opt_mrl c)
+                | `Breakinv (a, b, c) ->
+                    `Breakinv (mrl a, mr b, read_opt_mrl c)
                 | `Chromosome files -> `Chromosome (mrl files)
                 | `Genome files -> `Genome (mrl files)
                 | `ComplexTerminals files -> `ComplexTerminals (mrl files)
@@ -2086,74 +2070,77 @@ let rec make_remote_files (init : Methods.script) =
     | x -> x
 
 let rec cleanup_non_master script =
-    List.fold_right (fun x acc ->
+    List.fold_right
+      (fun x acc ->
         if is_master_only x then acc
-        else 
-            (* Before prepending, we cleanup the inner script if present *)
-            (match x with
-            | `Repeat (a, b) ->
-                    `Repeat (a, cleanup_non_master b)
-            | `OnEachTree (a, b) ->
-                    `OnEachTree (a, cleanup_non_master b)
-            | `ParallelPipeline (a, b, c, d) ->
-                    `ParallelPipeline (a, b, c, cleanup_non_master d)
-            | `GatherTrees (a, b) ->
-                    `GatherTrees (a, cleanup_non_master b)
-            | x -> x) :: acc) script []
+        else
+          (* Before prepending, we cleanup the inner script if present *)
+          let x = match x with
+            | `Repeat (a,b)     -> `Repeat (a, cleanup_non_master b)
+            | `OnEachTree (a,b) -> `OnEachTree (a, cleanup_non_master b)
+            | `ParallelPipeline (a,b,c,d) -> `ParallelPipeline (a, b, c, cleanup_non_master d)
+            | `GatherTrees (a,b) -> `GatherTrees (a, cleanup_non_master b)
+            | x -> x
+          in
+          x :: acc)
+      script []
+
 
 let rec parallel_analysis mine n (script : Methods.script list) = 
+    let partition_swap =
+      List.exists (function `LocalOptimum l -> l.Methods.parallel | _ -> false)
+    in
     (* The script must have been analyzed previously *)
     let res =
-        List.fold_left (fun script meth ->
-            let meth = 
-                match meth with
-                | #Methods.input ->
-                        [meth; `Barrier]
-                | `ParallelPipeline (a, b, c, d) ->
-                        let d = parallel_analysis mine n d in
-                        let d =
-                            match d with
-                            | `GetStored :: t ->
-                                    [`Barrier; `GetStored; `GatherTrees (c, d)]
-                            | _ -> failwith "No GetStored?"
-                        in
-                        let a = my_part mine n a in
-                        [`ParallelPipeline(a, b, c, d)]
-                | (`OnEachTree (_, m)) ->
-                        let m = `UnionStored :: (m @ [`StoreTrees]) in
-                        [`GatherTrees (m, [`GetStored]); `Barrier; meth; 
-                        `SelectYourTrees] 
-                | `Jackknife (a, it, b, c, d) ->
-                        let it = my_part mine n it in
-                        [`GatherJackknife; `Jackknife (a, it, b, c, d)]
-                | `Bootstrap (it, b, c, d) ->
-                        let it = my_part mine n it in
-                        [`GatherBootstrap; `Bootstrap (it, b, c, d)]
-                | `Bremer (a, b, c, d) ->
-                        [`GatherBremer; `Bremer (a, b, mine, n)]
-                | `Fusing (iterations, max_trees, a, b, c, d) ->
-                        let merger = 
-                            match max_trees with
-                            | None -> [`UnionStored; `StoreTrees]
-                            | Some x ->  [`UnionStored; `BestN max_trees; 
-                            `StoreTrees]
-                        in
-                        let meth =
-                            match iterations with
-                            | None -> meth
-                            | Some x -> 
-                                    `Fusing 
-                                    (Some (my_part mine n x), max_trees, 
-                                    a, b, c, d)
-                        in
-                        [`GatherTrees (merger, [`GetStored]); meth; 
-                        `SelectYourTrees ]
-                 | meth -> [meth]
+        List.fold_left
+          (fun script meth ->
+            let meth = match meth with
+                | #Methods.input -> [meth;`Barrier]
+                | `ParallelPipeline (a,b,c,d) ->
+                    let d = parallel_analysis mine n d in
+                    let d = match d with
+                        | `GetStored::t -> [`Barrier;`GetStored;`GatherTrees (c,d)]
+                        | _ -> failwith "No GetStored?"
+                    in
+                    let a = if partition_swap b then 1 else my_part mine n a in
+                    [`ParallelPipeline(a,b,c,d)]
+                | (`OnEachTree (_,m)) ->
+                    let m = `UnionStored :: (m @ [`StoreTrees]) in
+                    [`GatherTrees (m,[`GetStored]);`Barrier;meth;`SelectYourTrees]
+                | `Jackknife (a,it,b,c,d) ->
+                    let it = my_part mine n it in
+                    [`GatherJackknife; `Jackknife (a, it, b, c, d)]
+                | `Bootstrap (it,b,c,d) ->
+                    let it = my_part mine n it in
+                    [`GatherBootstrap;`Bootstrap (it,b,c,d)]
+                | `Bremer (a,b,c,d) ->
+                    [`GatherBremer; `Bremer (a, b, mine, n)]
+                | `Fusing (iterations,max_trees,a,b,c,d) ->
+                    let merger = match max_trees with
+                        | None  -> [`UnionStored;`StoreTrees]
+                        | Some x-> [`UnionStored;`BestN max_trees;`StoreTrees]
+                    in
+                    let meth = match iterations with
+                        | None  -> meth
+                        | Some x->`Fusing (Some (my_part mine n x),max_trees,a,b,c,d)
+                    in
+                    let script =
+                      [`GatherTrees (merger,[`GetStored]);meth;`SelectYourTrees]
+                    in
+                    script
+               | `LocalOptimum l_opt when l_opt.Methods.parallel ->
+                    let comp = [`UnionStored; `StoreTrees;] in
+                    let finalize =
+                      [`Barrier;`GetStored; `GatherTrees (comp,[`GetStored])]
+                    in
+                    [`ParallelPipeline (1,[meth],comp,finalize)]
+               | meth -> [meth]
             in
-            meth @ script) [] script
+            meth @ script)
+          [] script
     in
     let res = List.rev res in
     let res = List.map make_remote_files res in
-    if mine <> 0 then cleanup_non_master res
-    else res
-
+    if mine <> 0
+      then cleanup_non_master res
+      else res
