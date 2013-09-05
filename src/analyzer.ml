@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3526 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3527 $"
 
 let debug = false
 
@@ -153,6 +153,7 @@ let dependency_relations (init : Methods.script) = match init with
             | `RandomTrees _
             | `BestN _
             | `BestWithin _
+            | `UniqueNames
             | `Unique -> [([Data;Trees], [Trees], init, Composable)]
         in
         res
@@ -180,6 +181,8 @@ let dependency_relations (init : Methods.script) = match init with
             | `Exit -> 
                 let all = all !input_files !output_files in
                 [(all, all, init, ExitPoint)]
+            | `AssignTreeNames ->
+                [(datantrees, [Trees], init, NonComposable)]
             | `ChangeWDir _ ->
                 let files = outputf !output_files in
                 [(Data :: files, [Data], init, NonComposable)]
@@ -775,8 +778,6 @@ let rec explode_tree tree =
                         do_not_parallelize_me_but_recurse ()
                     else 
                         (match l_opt.Methods.tabu_join with
-(*                         | _ when l_opt.Methods.parallel -> *)
-(*                             do_not_parallelize_me_but_recurse () *)
                         | `Partition x ->
                             if List.exists 
                                 (function `ConstraintFile _ -> true | _ -> false) x
@@ -1309,13 +1310,15 @@ let rec linearize2 queue acc =
                                 linearize2 (single_queue y.next) nextl;
                                 let deps = (remove_all_trees_from_set (List.rev deps)) in
                                 let iteml = deps @ remove_trees_from_set (List.rev !iteml)
-                                and nextl = `GetStored :: (List.rev (remove_trees_from_set (List.rev !nextl)))
+                                and nextl = `GetStored :: `UniqueNames :: (List.rev (remove_trees_from_set (List.rev !nextl)))
                                 and compl = `UnionStored :: `StoreTrees :: List.rev !composerl in
                                 if l.Methods.parallel
                                 then
                                   acc :=
                                     `Store (all_dependencies, my_name) ::
-                                      (`ParallelPipeline (1,iteml,compl,nextl)) :: (!acc)
+                                      (`ParallelPipeline (1,iteml,compl,nextl)) ::
+                                        `OnEachTree([],[`AssignTreeNames]) ::
+                                              `Barrier :: (!acc)
                                 else
                                   acc :=
                                     nextl @
@@ -1426,7 +1429,7 @@ let break_in_independent_sections x =
     let a, b =
         List.fold_right
             (fun x (cur, acc) -> match x with
-              | `Wipe | `Set _ -> ([],((x::cur)::acc))
+              | `Wipe | `Set _ | `Exit -> ([],((x::cur)::acc))
               | `LocalOptimum l when l.Methods.parallel -> ([],((x::cur)::acc))
               | _ -> (x::cur),acc)
             x
@@ -1493,22 +1496,20 @@ let rec script_to_string (init : Methods.script) =
             | `RandomTrees _ -> "@[select random trees@]"
             | `BestN None -> "@[select the optimal trees@]"
             | `BestN (Some x) -> "@[select the best " ^ string_of_int x ^ "@ trees@]"
-            | `BestWithin float ->
-                    "@[select the best within " ^ string_of_float float ^ " percent of the minimum@]"
+            | `BestWithin float -> "@[select the best within " ^ string_of_float float ^ " percent of the minimum@]"
+            | `UniqueNames ->  "@[eliminate trees with the same name@]"
             | `Unique -> "@[eliminate repeated trees@]"
         in
         res
     | #Methods.characters_handling as meth ->
-        let res = 
-            match meth with
+        let res = match meth with
             | `RenameCharacters _ -> "@[rename the characters according to your list@]"
             | `AnalyzeOnlyCharacters _ 
             | `AnalyzeOnlyCharacterFiles _ -> "@[analyze only those characters you selected in your list@]"
         in
         res
     | #Methods.taxa_handling as meth ->
-        let res = 
-            match meth with
+        let res = match meth with
             | `SynonymsFile _ 
             | `Synonyms _ -> "@[rename the terminals that you specified in your list@]"
             | `AnalyzeOnlyFiles _
@@ -1522,6 +1523,7 @@ let rec script_to_string (init : Methods.script) =
             | `Interactive -> "@[wait for the user to issue some other command@]"
             | `ChangeWDir _ -> "@[change my working directory@]"
             | `PrintWDir -> "@[print my working directory@]"
+            | `AssignTreeNames -> "@[assign unique identifiers to trees]@"
             | `Memory _ -> "@[print my memory statistics@]"
             | `KML _ -> "@[produce a KML file@]"
             | `TimerInterval _ -> "@[change the timer interval@]"
@@ -1629,7 +1631,7 @@ let rec script_to_string (init : Methods.script) =
         in
         res
     | `ReadScript _ -> "@[run the script you gave me@]"
-    | `Repeat (n, comm) -> (** not used **) ""
+    | `Repeat (n, comm) -> "" (** not used **)
     | #Methods.report as meth ->
         let res = match meth with
             | `ExplainScript _ -> "@[explain you a script@]"
@@ -1905,6 +1907,7 @@ let is_master_only (init : Methods.script) = match init with
     | `Model _
     | `LKSites _
     | `ExplainScript _
+    | `AssignTreeNames
     | `PrintWDir
     | `Memory _
     | `KML _
@@ -2128,12 +2131,6 @@ let rec parallel_analysis mine n (script : Methods.script list) =
                       [`GatherTrees (merger,[`GetStored]);meth;`SelectYourTrees]
                     in
                     script
-               | `LocalOptimum l_opt when l_opt.Methods.parallel ->
-                    let comp = [`UnionStored; `StoreTrees;] in
-                    let finalize =
-                      [`Barrier;`GetStored; `GatherTrees (comp,[`GetStored])]
-                    in
-                    [`ParallelPipeline (1,[meth],comp,finalize)]
                | meth -> [meth]
             in
             meth @ script)

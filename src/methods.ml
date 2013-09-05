@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3522 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3527 $"
 
 exception TimedOut
 
@@ -799,6 +799,7 @@ type application = [
     | `Normal
     | `Normal_plus_Vitamines
     | `Exhaustive_Weak
+    | `AssignTreeNames
     | `Exhaustive_Strong
     | `Iterative of [`ThreeD of int option | `ApproxD of int option ]
     | `ReDiagnose
@@ -831,6 +832,7 @@ type tree_handling = [
     | `BestWithin of float
     | `RandomTrees of int
     | `Unique
+    | `UniqueNames
 ]
 
 type script = [ 

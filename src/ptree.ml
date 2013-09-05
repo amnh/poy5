@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3459 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3527 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -254,7 +254,6 @@ class type ['a, 'b] tabu_mgr = object
     method get_node_manager : ('a, 'b) nodes_manager option
 
     method features : (string * string) list -> (string * string) list
-    (** What does this method do? *)
 
     method break_edges : Tree.edge list
     
@@ -2011,14 +2010,10 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
     @return p_tree that corresponds to the Tree.Parse.t *)
 let convert_to tree (data, nd_data_lst) = 
     (* convert the Tree.Parse.t to Tree.u_tree *)
-    let ut =
-        Tree.Parse.convert_to tree (fun taxon -> Data.taxon_code taxon data)
-    in
+    let ut = Tree.Parse.convert_to tree (fun taxon -> Data.taxon_code taxon data) in
     let pt = { (empty data) with tree = ut } in
     (* function to add leaf-node data to the ptree. *)
-    let data_adder ptree nd = 
-        add_node_data (Node.taxon_code nd) nd ptree
-    in
+    let data_adder ptree nd = add_node_data (Node.taxon_code nd) nd ptree in
     List.fold_left data_adder pt nd_data_lst
 
 
