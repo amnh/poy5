@@ -734,9 +734,7 @@ format_items:
     | RESPECTCASE { P.RespectCase }
     | MISSING EQUAL symbol { P.FMissing $3 }
     | GAP EQUAL symbol { P.Gap $3 }
-    | SYMBOLS EQUAL QUOTED { 
-        let len = String.length $3 in
-        P.Symbols (String.sub $3 0 (len - 1))}
+    | SYMBOLS EQUAL QUOTED { P.Symbols $3}
     | EQUATE EQUAL QUOTED { P.Equate $3 }
     | MATCHCHAR EQUAL symbol { P.MatchChar $3 }
     | NOLABELS     { P.Labels false }
