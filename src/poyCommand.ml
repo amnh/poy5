@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3520 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3530 $"
 
 let debug = false 
 
@@ -1162,7 +1162,7 @@ type command = [
         | `Rename x -> (transform_rename_arguments x) @ acc
         | `Repeat (it, com) ->
             let res = List.rev (List.fold_left transform_command [] com) in
-            `Repeat (it, res) :: acc
+            `Repeat (`Num it, res) :: acc
 
     let transform_all_commands (x : command list) = 
         List.rev (List.fold_left transform_command [] x)

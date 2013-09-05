@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3527 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3530 $"
 
 let (-->) a b = b a
 
@@ -3908,11 +3908,35 @@ let rec folder (run : r) meth =
     | #Methods.runtime_store as meth -> 
             runtime_store (update_trees_to_data false false) run meth 
     | `Repeat (n, comm) ->
-            let res = ref run in
-            for i = 1 to n do
-            res := (List.fold_left folder !res comm);
-            done;
-            !res
+        let best_tree_cost trees =
+          let costs =
+            List.sort (fun x y -> ~- (Pervasives.compare x y))
+                      (List.map (Ptree.get_cost `Adjusted)
+                                (Sexpr.to_list trees))
+          in
+          match costs with
+            | []   -> 0.0
+            | x::_ -> x
+        in
+        begin match n with
+          | `Num n ->
+              let res = ref run in
+              for i = 1 to n do
+                res := (List.fold_left folder !res comm);
+              done;
+              !res
+          | `TreeCostConverge ->
+              let previous_tree_cost = ref max_float
+              and rrun = ref run in
+              while !previous_tree_cost > (best_tree_cost (!rrun).trees) do
+                begin
+                  let current_best =  best_tree_cost (!rrun).trees in
+                  previous_tree_cost := current_best;
+                  rrun := (List.fold_left folder !rrun comm);
+                end
+              done;
+              !rrun
+        end
     | `ReadScript files ->
             let file_folder run item =
                 try folder run item

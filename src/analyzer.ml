@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3527 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3530 $"
 
 let debug = false
 
@@ -371,9 +371,7 @@ let dependency_relations (init : Methods.script) = match init with
     | `ReadScript _ ->
         let all = all !input_files !output_files in
         [(all, all, init, NonComposable)]
-    | `Repeat (n, comm) -> 
-        (* This is special, as implies concurrency; we will treat it like
-         * nothing for now though, as nobody knows about it *)
+    | `Repeat (_, comm) -> 
         [(datantrees, data, init, NonComposable)]
     | #Methods.report as meth ->
         let res, files, isload = match (meth : [< Methods.report]) with
@@ -1310,15 +1308,14 @@ let rec linearize2 queue acc =
                                 linearize2 (single_queue y.next) nextl;
                                 let deps = (remove_all_trees_from_set (List.rev deps)) in
                                 let iteml = deps @ remove_trees_from_set (List.rev !iteml)
-                                and nextl = `GetStored :: `UniqueNames :: (List.rev (remove_trees_from_set (List.rev !nextl)))
+                                and nextl = `GetStored :: `UniqueNames :: [] 
+                                and restl = List.rev (remove_trees_from_set (List.rev !nextl))
                                 and compl = `UnionStored :: `StoreTrees :: List.rev !composerl in
                                 if l.Methods.parallel
                                 then
-                                  acc :=
-                                    `Store (all_dependencies, my_name) ::
-                                      (`ParallelPipeline (1,iteml,compl,nextl)) ::
-                                        `OnEachTree([],[`AssignTreeNames]) ::
-                                              `Barrier :: (!acc)
+                                  let fin = `OnEachTree([],[`AssignTreeNames])::`Barrier::(!acc)
+                                  and par = [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,nextl)] in
+                                  acc := restl @ `Repeat (`TreeCostConverge,par) :: fin
                                 else
                                   acc :=
                                     nextl @
@@ -1631,7 +1628,6 @@ let rec script_to_string (init : Methods.script) =
         in
         res
     | `ReadScript _ -> "@[run the script you gave me@]"
-    | `Repeat (n, comm) -> "" (** not used **)
     | #Methods.report as meth ->
         let res = match meth with
             | `ExplainScript _ -> "@[explain you a script@]"
@@ -1696,6 +1692,14 @@ let rec script_to_string (init : Methods.script) =
     | `StoreTrees       -> "@[Store Trees@]"
     | `UnionStored      -> "@[Get Stored Union Trees@]"
     | `GetStored        -> "@[Get Stored Trees@]"
+    | `Repeat (`Num n, comm) ->
+        let header = "@[@[ Repeat a script "^(string_of_int n)^" times@]"
+        and a_str = "@[While@]"::List.map script_to_string comm in
+        String.concat " " (header :: a_str @ ["@]"])
+    | `Repeat (`TreeCostConverge, comm) ->
+        let header = "@[ Repeat a script until best tree converges@]" 
+        and a_str = "@[While@]"::List.map script_to_string comm in
+        String.concat " " (header :: a_str @ ["@]"])
     | `GatherTrees (a,b)->
         let header = "@[@[Exchange trees with other processes@]" in
         let a_str = "@[First@]"::List.map script_to_string a
