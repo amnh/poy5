@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3530 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3531 $"
 
 let debug = false
 
@@ -1308,14 +1308,14 @@ let rec linearize2 queue acc =
                                 linearize2 (single_queue y.next) nextl;
                                 let deps = (remove_all_trees_from_set (List.rev deps)) in
                                 let iteml = deps @ remove_trees_from_set (List.rev !iteml)
-                                and nextl = `GetStored :: `UniqueNames :: [] 
-                                and restl = List.rev (remove_trees_from_set (List.rev !nextl))
-                                and compl = `UnionStored :: `StoreTrees :: List.rev !composerl in
+                                and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
                                 if l.Methods.parallel
                                 then
-                                  let fin = `OnEachTree([],[`AssignTreeNames])::`Barrier::(!acc)
-                                  and par = [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,nextl)] in
-                                  acc := restl @ `Repeat (`TreeCostConverge,par) :: fin
+                                  let compl = `UnionStored :: `StoreTrees :: List.rev !composerl
+                                  and restl = `GetStored :: `UniqueNames :: [] in
+                                  let fin  = `OnEachTree([],[`AssignTreeNames])::`Barrier::(!acc)
+                                  and par = [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,restl)] in
+                                  acc := nextl @ `Repeat (`TreeCostConverge,par) :: fin
                                 else
                                   acc :=
                                     nextl @
