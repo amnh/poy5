@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3531 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3532 $"
 
 let debug = false
 
@@ -1646,9 +1646,9 @@ let rec script_to_string (init : Methods.script) =
             | `Topo_Selection _ -> "@[report the tree selection p-values@]"
             | `TerminalsFiles _ -> "@[report the terminals per file@]"
             | `RobinsonFoulds _ -> "@[report robinson foulds tree distance matrix@]"
+            | `GraphicSupports (_, _)
             | `Supports (_, _)  -> "@[report the support values@]"
             | `CrossReferences (_, _) -> "@[report the cross references@]"
-            | `GraphicSupports (_, _)
             | `Consensus (_, _)
             | `GraphicConsensus (_, _) -> "@[report the consensus@]"
             | `GraphicDiagnosis (reporttype,filename) ->
