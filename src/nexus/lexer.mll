@@ -67,6 +67,7 @@
         ("ELIMINATE", fun x -> ELIMINATE x);
         ("ENCODE", fun x -> ENCODE x);
         ("END", fun x -> ENDNEXUS x);
+        ("ENDBLOCK", fun x -> ENDNEXUS x);
         ("EPS", fun x -> EPS x);
         ("EQUATE", fun x -> EQUATE x);
         ("EXSET", fun x -> EXSET x);
@@ -192,7 +193,7 @@ and inquotes = parse
 and insinglequotes = parse 
       ([ ^ '\'']+ as d)['\''] { SINGLEQUOTED d }
 and comment = parse
-      [ ^ ']' '[']      { comment lexbuf }
+    | [ ^ ']' '[']      { comment lexbuf }
     | [ '[']            { incr comment_depth; comment lexbuf }
     | [ ']' ]           { decr comment_depth; 
                         if !comment_depth = 0 then token lexbuf else

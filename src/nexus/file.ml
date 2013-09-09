@@ -654,8 +654,7 @@ let remove_comments string =
 
 
 let process_matrix labels style matrix taxa characters get_row_number assign_item data =
-    let concat lst = 
-        match style with
+    let concat lst = match style with
         | `None -> String.concat "" lst
         | `Hennig -> "[" ^ String.concat " " lst ^ "]"
         | `Nexus -> "{" ^ String.concat " " lst ^ "}"
@@ -677,7 +676,6 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
     let stream = Stream.of_string data in
     let n_chars = Array.length characters in
     let first_taxon = ref (-1) in 
-
     let compress_ss (olst:static_state list option):static_state =
         let union (oa:static_state) (ob:static_state) =
             match oa,ob with
@@ -697,7 +695,6 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
         | None -> failwith "What do you want from my life?"
         | Some lst -> List.fold_right union lst None
     in
-
     (* A function that takes a parser, a spec and a  stream and gets the
     * necessary element for the matrix *)
     let rec process_position alph_parser alph_spec stream position stack =
@@ -705,7 +702,7 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
         | None -> failwith "Short NEXUS matrix?"
         | Some x ->
             begin match x with
-                | ' ' | '\001' .. '\032' -> Stream.junk stream;
+                | ' ' | ',' | '\001' .. '\032' -> Stream.junk stream;
                     process_position alph_parser alph_spec stream position stack
                 | '[' when style = `Hennig -> Stream.junk stream;
                     process_position alph_parser alph_spec stream position (Some [])
@@ -743,15 +740,13 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
                                         stream position (Some (next::lst))
             end
     in
-    let is_space stream =
-        match Stream.peek stream with
-        | None -> false
-        | Some x -> 
-                match x with
-                | ' '| '\001' .. '\031' ->
-                        true
-                | x -> 
-                        false
+    let is_space stream = match Stream.peek stream with
+        | None   -> false
+        | Some x ->
+          begin match x with
+            | ' '| '\001' .. '\031' -> true
+            | x -> false
+          end
     in
     let consume_spaces stream =
         let found = ref false in
@@ -781,13 +776,24 @@ let process_matrix labels style matrix taxa characters get_row_number assign_ite
                 end else match taxa.(!cntr) with
                     | Some x -> x
                     | None -> failwith "Taxon undefined")
-        else 
+        else
+            let rec consume_taxa_name (dq,sq) buffer stream =
+              if (not (is_space stream)) || sq || dq then
+                let next = Stream.next stream in
+                let dq,sq =
+                  if next = '\'' then (dq, not sq)
+                  else if next = '"' then (not dq,sq)
+                  else (dq,sq)
+                in
+                Buffer.add_char buffer next;
+                consume_taxa_name (dq,sq) buffer stream
+              else
+                ()
+            in
             (fun stream ->
                 ignore (consume_spaces stream);
                 let b = Buffer.create 13 in
-                while not (is_space stream) do
-                    Buffer.add_char b (Stream.next stream)
-                done;
+                let () = consume_taxa_name (false,false) b stream in
                 Buffer.contents b)
     in
     let rec taxon_processor x position =
@@ -845,7 +851,6 @@ let add_prealigned_characters file chars (acc:nexus) =
                 Array.append acc.taxa (Array.make (int_of_string v) None) 
     in
     let acc = { acc with taxa = taxa } in
-
     let nchars = int_of_string chars.P.char_char_dimensions in
     let characters = 
         Array.append acc.characters 
@@ -920,7 +925,7 @@ let add_prealigned_characters file chars (acc:nexus) =
                 (fun x y v -> matrix.(x).(y) <- v)
         in
         process_matrix (get_labels form) `Nexus matrix taxa characters 
-        get_row_number assign_item data
+                       get_row_number assign_item data
     in
     let () =
         (* Eliminate the characters that the person doesn't really want *)
