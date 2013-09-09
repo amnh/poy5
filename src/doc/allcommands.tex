@@ -153,6 +153,17 @@ tree that makes another tree acceptable for the lookahead list. This
 parameter is only useful if~\nccross{lookahead}{lookahead} is used.}
 {buildthreshold}
 
+\argumentdefinition{first}{}}
+{Specifies how to choose between two trees with the same cost, take the first one to be found.}
+{}
+\argumentdefinition{last}{}}
+{Specifies how to choose between two trees with the same cost, take the last one to be found. This
+is the default.}
+{}
+\argumentdefinition{at\_random}{}}
+{Specifies how to choose between two trees with the same cost, choose randomly.}
+{}
+
 \argumentdefinition{trees}{\obligatory{\poyint}}
 {The integer value specifies the number of independent, individual
 Wagner tree builds. The label \poyargument{trees} is optional: it
@@ -171,7 +182,7 @@ of the current trees in memory.} {treesbuild}
 
 \end{arguments}
 
-\poydefaults{trees:10,randomized,lookahead:1,threshold:0}
+\poydefaults{trees:10,randomized,lookahead:1,threshold:0,last}
 {By default, \poy will build 10 trees using a random addition
 sequence for each of them.}
 
@@ -3568,19 +3579,26 @@ interface).}
 \end{argumentgroup}
 
 \begin{argumentgroup}{Tree selection}
-{As the tree search proceeds, a tree may or may not be selected to
-continue the search or to return as a result. The following
-arguments determine under what conditions can a tree be acceptable
-during the search.}
+{As the tree search proceeds, a tree may or may not be selected to continue the
+search or to return as a result. The following arguments determine under what
+conditions can a tree be acceptable during the search.}
+
+\argumentdefinition{first}{}}
+{Specifies how to choose between two trees with the same cost, take the first one to be found.}
+{}
+\argumentdefinition{last}{}}
+{Specifies how to choose between two trees with the same cost, take the last one to be found.}
+{}
+\argumentdefinition{at\_random}{}}
+{Specifies how to choose between two trees with the same cost, choose randomly. This is the default.}
+{}
 
 \argumentdefinition{threshold}{\obligatory{\poyfloat}}
-{Sets the percentage cost for suboptimal
-trees that are more exhaustively evaluated during the swap,
-meaning that trees within the threshold are subject to an extra
-round of swapping. For example, if the current
-optimal tree has cost 450, and \poyargument{threshold:10} is specified, trees
-with cost at most 495 are swapped. \poyargument{threshold} is
-equivalent to \emph{slop} of \texttt{POY3}.}
+{Sets the percentage cost for suboptimal trees that are more exhaustively
+evaluated during the swap, meaning that trees within the threshold are subject
+to an extra round of swapping. For example, if the current optimal tree has
+cost 450, and \poyargument{threshold:10} is specified, trees with cost at most
+495 are swapped. \poyargument{threshold} is equivalent to \emph{slop} of \texttt{POY3}.}
 {thresholdswap}
 
 \argumentdefinition{trees}{\obligatory{\poyint}}
@@ -3592,7 +3610,7 @@ per tree in memory.}
 
 \end{arguments}
 
-\poydefaults{trees:1,alternate,threshold:0,bfs}{By default, current trees are
+\poydefaults{trees:1,alternate,threshold:0,bfs,last}{By default, current trees are
 submitted to a round of alternate rounds of SPR and TBR using breadth first 
 search and one best tree per starting tree is kept.}
 
