@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 3459 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 3535 $"
 
 let debug_find_local_optimum = false
 
@@ -373,7 +373,7 @@ module MakeNormal
 
     let get_search_function tabu_creator trajectory meth =
         let stepfn = function
-            | `Spr ->  PtreeSearch.spr_step, "SPR"
+            | `Spr -> PtreeSearch.spr_step, "SPR"
             | `Tbr -> PtreeSearch.tbr_step, "TBR"
         in
             match trajectory with
@@ -677,14 +677,25 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
             | Some v -> v
         in
         let breakfn =
-            match l_opt.Methods.tabu_break with
-            | `Randomized -> PhyloTabus.random_break
-            | `DistanceSorted early -> 
-                    PhyloTabus.sorted_break early partition_for_other_tabus
-            | `OnlyOnce -> PhyloTabus.only_once_break
+          let running_parallel,n,p =
+            IFDEF USEPARALLEL THEN
+              true,(Mpi.comm_size Mpi.comm_world),(Mpi.comm_rank Mpi.comm_world)
+            ELSE
+              false,0,0
+            END
+          in
+            if l_opt.Methods.parallel && running_parallel then
+              match l_opt.Methods.tabu_break with
+              | `Randomized -> PhyloTabus.random_break_par n p
+              | `DistanceSorted e -> PhyloTabus.sorted_break_par n p e partition_for_other_tabus
+              | `OnlyOnce -> PhyloTabus.only_once_break_par n p
+            else
+              match l_opt.Methods.tabu_break with
+              | `Randomized -> PhyloTabus.random_break
+              | `DistanceSorted e -> PhyloTabus.sorted_break e partition_for_other_tabus
+              | `OnlyOnce -> PhyloTabus.only_once_break
         in
-        let joinfn =
-            match l_opt.Methods.tabu_join with
+        let joinfn = match l_opt.Methods.tabu_join with
             | `UnionBased depth ->
                     PhyloTabus.union_join (get_depth depth)
             | `AllBased depth -> 

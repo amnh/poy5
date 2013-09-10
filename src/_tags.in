@@ -11,6 +11,8 @@
 <**/*.top> or <**/*.native> or <**/*.byte> : use_gzcaml, use_str, use_unix,use_bigarray,use_zlib@OUSE_CONCORDE@
 <*.ml> or <**/*.top> or <**/*.native> or <**/*.byte> : use_parmap
 
+
+"treeSearch.ml"                                                                : pp(camlp4orf kolmoGrammar.cmo kolmoExtension.cmo poyExtension.cmo @DUSEPARALLEL@), use_camlp4o, use_extensions
 "kolmoGrammar.ml" or <*Extension.ml> or "poyCommand.ml"                        : pp(camlp4orf pa_extend.cmo), use_camlp4o
 <kolmo*/*.ml> or <plugins/*.ml> or <utils/*.ml> or "portal.ml" or "status.ml"  : pp(camlp4orf kolmoGrammar.cmo kolmoExtension.cmo poyExtension.cmo @DUSE_PARMAP@ @DUSE_NATIVEDYNLINK@ @DUSE_XSLT@ @DUSE_LIKELIHOOD@ @DUSEREADLINE@ @DUSENCURSES@ @DUSEPARALLEL@ @DUSENOSHAREDHD@ @DUSE_LARGE_MESSAGES@ @DUSE_LONG_SEQUENCES@ @DUSE_LARGE_ALPHABETS@ @DUSE_VERIFY_COSTS@ @DUSEGRAPHICS@ @DUSEWIN32@ @DUSE_CONCORDE@), use_camlp4o, use_extensions
 <numerical.{ml,mli}> or <mlModel.{ml,mli}> or <mlDynamicCS.{ml,mli}>           : pp(camlp4orf kolmoGrammar.cmo kolmoExtension.cmo poyExtension.cmo @DUSE_PARMAP@ @DUSE_NATIVEDYNLINK@ @DUSE_XSLT@ @DUSE_LIKELIHOOD@ @DUSEREADLINE@ @DUSENCURSES@ @DUSEPARALLEL@ @DUSENOSHAREDHD@ @DUSE_LARGE_MESSAGES@ @DUSE_LONG_SEQUENCES@ @DUSE_LARGE_ALPHABETS@ @DUSE_VERIFY_COSTS@ @DUSEGRAPHICS@ @DUSEWIN32@ @DUSE_CONCORDE@), use_camlp4o, use_extensions

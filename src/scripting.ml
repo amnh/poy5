@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3530 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3535 $"
 
 let (-->) a b = b a
 
@@ -2115,7 +2115,7 @@ let build_has_exact = build_has `Exact
 
 let only_multistatic meth =
     List.fold_left (fun acc x ->
-        acc & (match x with
+        acc && (match x with
         | `Static_Aprox _
         | `Automatic_Static_Aprox _ -> false
         | _ -> true)) true meth

@@ -21,7 +21,7 @@
  * implemented. The tabu manager specifies the order in which edges are broken by
  * the SPR and TBR search procedures. The list of edges in the tabu should always
  * match the edges in the tree. *)
-let () = SadmanOutput.register "Tabus" "$Revision: 3500 $"
+let () = SadmanOutput.register "Tabus" "$Revision: 3535 $"
 
 (* A module that provides the managers for a local search (rerooting, edge
 * breaking and joining. A tabu manager controls what edges are next ina series
@@ -90,14 +90,18 @@ module type S = sig
 
     (** Choose at random any non previously selected edge *)
     val random_break : emc
+    val random_break_par : int -> int -> emc
 
-    (** Choose the edges to break, starting with those that show greates 
-    * length.  *)
+    (** Choose the edges to break, starting with those that show greates length. *)
     val sorted_break : 
         bool -> [ `Sets of All_sets.IntSet.t | `Height of int ] option ->  emc
 
+    val sorted_break_par :
+        int -> int -> bool -> [ `Sets of All_sets.IntSet.t | `Height of int ] option -> emc
+
     (** Break an edge once and only once, never again *)
     val only_once_break : emc
+    val only_once_break_par : int -> int -> emc
 
     (** iteration managers -- from doing nothing to everything and something
      * between. The first two arguments define the model iteration pattern *)
@@ -128,17 +132,6 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     type a = Node.n
     type b = Edge.e
     type phylogeny = (Node.n, Edge.e) Ptree.p_tree
-
-
-    let ndebug = false
-    let debug_num_edges = false             (* Print how many edges are in the
-                                               to-break and to-join queues 
-                                               whenever an update is called *)
-    let debug_tabu_join_once = false
-    let debug_join_to_tree_in_forest = false
-    let odebug = Status.user_message Status.Information
-
-    let data_mining = false
 
     let (-->) a b = b a
 
@@ -331,14 +324,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         let get_list l =
             match l with
             | [] -> None, []
-            | l :: ls -> Some l, ls in
-        let print e = (match e with
-        | Some Tree.Edge(e1, e2) ->
-            if debug_tabu_join_once
-            then odebug ("Returning edge " ^ string_of_int e1
-                         ^ " -> " ^ string_of_int e2)
-        | None -> ());
-              e in
+            | l :: ls -> Some l, ls
+        in
     object (self)
         inherit [Node.n, Edge.e] tabu_base as super
 
@@ -353,12 +340,12 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method private get_left =
             let r, list = get_list left in
             left <- list;
-            print r
+            r
 
         method private get_right =
             let r, list = get_list right in
             right <- list;
-            print r
+            r
 
         method features l = ("tabu", "join-once") :: l
 
@@ -1617,15 +1604,14 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         rand res;
         res
 
-    class randomized_edges (ptree : (Node.n, Edge.e) Ptree.p_tree) :
+    class randomized_edges all_edges (ptree : (Node.n, Edge.e) Ptree.p_tree) :
         [Node.n, Edge.e] edges_manager =
         object (self)
-            inherit all_edges `Both (calculate_edges ptree) ptree
+            inherit all_edges `Both all_edges ptree
 
         method update_reroot (_  : (Node.n, Edge.e) Ptree.breakage) = ()
         method private update_with_deltas tree tdelta =
-            let removed = 
-                match break_deltas with
+            let removed = match break_deltas with
                 | Some (a, b) -> (Tree.break_to_edge_delta (a, b))
                 | None -> failwith "No deltas?"
             and gen_created = Tree.join_to_edge_delta tdelta in
@@ -1651,7 +1637,6 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             end_of_check <- 
                 if next_edge < 0 then (Array.length edges) - 1 else next_edge;
             this_is_the_end <- false
-
     end
 
     module EdgeComparator = struct
@@ -1670,14 +1655,10 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
     module EdgeSet = Set.Make (EdgeComparator)
 
-    class only_once_break (ptree : (Node.n, Edge.e) Ptree.p_tree) :
+    class only_once_break edges (ptree : (Node.n, Edge.e) Ptree.p_tree) :
         [Node.n, Edge.e] edges_manager = object (self)
 
-            val mutable edges = 
-                Tree.EdgeSet.fold (fun x acc ->
-                    EdgeSet.add x acc) 
-                ptree.Ptree.tree.Tree.d_edges
-                EdgeSet.empty;
+        val mutable edges = edges
 
         method update_reroot (_  : (Node.n, Edge.e) Ptree.breakage) = ()
             val mutable break_delta = None
@@ -1773,9 +1754,9 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         let initial_edges = Array.of_list edges in
         Array.map (fun (_, x) -> x) initial_edges
 
-    class sort_edges_by_cost early_stop dont_cut ptree =
+    class sort_edges_by_cost edges early_stop ptree =
         object (self)
-            inherit all_edges `Both (create_initial_edges dont_cut ptree) ptree
+            inherit all_edges `Both edges ptree
             as super
 
         val mutable es = early_stop
@@ -2310,19 +2291,60 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         in
         new bfs_based side dont_cross max_int ptree
 
-    let random_break ptree = new randomized_edges ptree
+    let my_parallel_section n p all =
+        let sectional,stride =
+            let num_all = Array.length all in
+            let others  = num_all / p in
+            let first   = (num_all mod n) + others in
+            if p = 0
+                then first,0
+                else others,(first+others*(p-2))
+        in
+        let res = Array.make sectional all.(0) in
+        let () = Array.blit all stride res 0 sectional in
+        res
 
-    let sorted_break early_stop sets ptree = 
-        let dont_cut =
-            match sets with
+    let random_break ptree =
+        new randomized_edges (calculate_edges ptree) ptree
+
+    let random_break_par n p ptree =
+        let edges = my_parallel_section n p (calculate_edges ptree) in
+        new randomized_edges edges ptree
+
+    let sorted_break_par n p early_stop sets ptree = 
+        let dont_cut = match sets with
             | None -> []
-            | Some (`Sets x) ->
-                    snd (generate_partition_edges x ptree)
+            | Some (`Sets x) -> snd (generate_partition_edges x ptree)
             | Some (`Height x) -> max_height ptree
         in
-        new sort_edges_by_cost early_stop dont_cut ptree
+        let edges = my_parallel_section n p (create_initial_edges dont_cut ptree) in
+        new sort_edges_by_cost edges early_stop ptree
 
-    let only_once_break ptree = new only_once_break ptree
+    let sorted_break early_stop sets ptree = 
+        let dont_cut = match sets with
+            | None -> []
+            | Some (`Sets x) -> snd (generate_partition_edges x ptree)
+            | Some (`Height x) -> max_height ptree
+        in
+        let edges = create_initial_edges dont_cut ptree in
+        new sort_edges_by_cost edges early_stop ptree
+
+
+    let only_once_break_par n p ptree =
+        let edges = my_parallel_section n p (calculate_edges ptree) in
+        let edges = 
+          Array.fold_right
+              (fun x acc -> EdgeSet.add x acc) edges EdgeSet.empty;
+        in
+        new only_once_break edges ptree
+
+    let only_once_break ptree =
+        let edges = 
+          Tree.EdgeSet.fold (fun x acc -> EdgeSet.add x acc)
+              ptree.Ptree.tree.Tree.d_edges EdgeSet.empty;
+        in
+        new only_once_break edges ptree
+
     let simple_dfs_from_middle ptree = new simple_dfs ptree
     
     let simple_nm_none c t = new nm_simple_none c t
@@ -2406,7 +2428,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         (* see, ('a, 'b) Ptree.tabu_mgr *)
     class standard_tabu (ptree : (Node.n, Edge.e) Ptree.p_tree) (join : semc) 
-    (reroot : semc) (break : emc) (iterate : nm) = object (self)
+                        (reroot : semc) (break : emc) (iterate : nm) =
+      object (self)
         val timer = Timer.start ()
         val mutable current_time = 0
         val left = new side_manager `Left ptree join reroot
