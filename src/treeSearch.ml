@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 3535 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 3538 $"
 
 let debug_find_local_optimum = false
 
@@ -681,7 +681,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
             IFDEF USEPARALLEL THEN
               true,(Mpi.comm_size Mpi.comm_world),(Mpi.comm_rank Mpi.comm_world)
             ELSE
-              false,0,0
+              false,1,0
             END
           in
             if l_opt.Methods.parallel && running_parallel then
@@ -702,17 +702,14 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                     PhyloTabus.distance_join (get_depth depth)
             | `Partition options ->
                     let depth = 
-                        List.fold_left (fun acc x ->
-                            match x with
+                        List.fold_left
+                          (fun acc -> function
                             | `MaxDepth x -> Some x
                             | _ -> acc)
                         None options
                     in
                     PhyloTabus.partitioned_join (`Sets (Lazy.force sets)) 
-                    (get_depth depth)
-                    (* TMP 
-                    PhyloTabus.partitioned_join (`Height 4) (get_depth depth)
-                    *)
+                                                (get_depth depth)
         in
         let iterfn = create_adjust_manager meth in
         let rerootfn =

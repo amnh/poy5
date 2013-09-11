@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3532 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3538 $"
 
 let debug = false
 
@@ -1303,6 +1303,16 @@ let rec linearize2 queue acc =
                                 let composerl = ref []
                                 and nextl = ref []
                                 and iteml = ref [] in
+                                let todo =
+                                  let modify_space x = match x with
+                                    | `None
+                                    | `SingleNeighborhood _ -> x
+                                    | `ChainNeighborhoods n
+                                    | `Alternate (n,_) -> `SingleNeighborhood n
+                                  in
+                                  let opt = {l with ss = modify_space l.ss;} in
+                                  Tree {x with run = `LocalOptimum opt; }
+                                in
                                 linearize2 (single_queue y.todo_p) iteml;
                                 linearize2 (single_queue y.composer) composerl;
                                 linearize2 (single_queue y.next) nextl;

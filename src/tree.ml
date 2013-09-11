@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 3459 $"
+let () = SadmanOutput.register "Tree" "$Revision: 3538 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -343,9 +343,7 @@ let normalize_edge e tree =
             let e' = Edge (y,x) in
             if EdgeSet.mem e' tree.d_edges
                 then e'
-                else 
-                    let () = prerr_endline (string_of_int x ^ "-" ^ string_of_int y) in
-                    raise Invalid_Edge
+                else raise Invalid_Edge
         end
 
 (** [get_edge edge btree]

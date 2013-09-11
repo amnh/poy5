@@ -1,3 +1,36 @@
+
+CHANGES BETWEEN 5.0.0 and 5.0.1 Official Releases
+
+New Features:
+  - Script Analyzer has some resolutions for parallel analysis that should
+    result in better performance of parallel execution.
+  - swap(parallel) command, see below.
+
+Bugs Fixed:
+  - Reading morphology under Nexus had errors in processing SYMBOLS.
+  - Reading Nexus files with single quoted taxa-names failed.
+
+New Commands (see manual for full explanations):
+  - Added documentation for commands in swap/build at_random, first, last. These
+    control how trees of the same cost are selected in the search/build. The
+    default is last, that is, the tree in memory is always replaced by the
+    newest found.
+  - swap(parallel) will swap in parallel a particular tree. This will allow
+    large trees that require a lot of computation (dynamic likelihood) to be
+    parallelized when a small number of trees are being analyzed. For example,
+
+      read(...
+      search()
+      transform(likelihood:(gtr,mpl,gap:coupled))
+      select()
+      swap(parallel)
+      report(...
+
+    This will allow searching on the selected tree in parallel when the number
+    of nodes in the MPI run is > 1.
+
+
+
 CHANGES BETWEEN 5.0 beta2 and 5.0 Official Release
 
 New Features:
