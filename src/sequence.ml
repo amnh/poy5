@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sequence" "$Revision: 3459 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 3536 $"
 
 exception Invalid_Argument of string
 
@@ -2915,7 +2915,7 @@ end
 let of_code_arr code_arr gap = 
     let num_nus = Array.fold_left   
         (fun num_nus dna_code ->  
-             if (dna_code = gap) or (dna_code = 0) then num_nus 
+             if (dna_code = gap) || (dna_code = 0) then num_nus 
              else num_nus + 1  
         ) 0 code_arr 
     in  
@@ -2925,7 +2925,7 @@ let of_code_arr code_arr gap =
     let _ =  
         Array.fold_left   
             (fun num_nus code ->                                              
-                 match (code=gap) or (code = 0) with 
+                 match (code=gap) || (code = 0) with 
                  | true -> num_nus  
                  | false ->  
                        set seq num_nus code;  

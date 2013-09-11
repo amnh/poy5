@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 3459 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 3536 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -652,7 +652,7 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
     let seq1 = med1.seq and seq2 = med2.seq in    
     let len1 = Sequence.length seq1 in
     let len2 = Sequence.length seq2 in 
-    if (len1 < 2) or (len2 < 2) then 0, 0
+    if (len1 < 2) || (len2 < 2) then 0, 0
     else begin
         let ali_pam = {ali_pam with  
                            ChromPam.min_pos1 = 0; 

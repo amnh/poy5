@@ -1739,7 +1739,7 @@ let branches_to_map data initial_table branch_table trees =
         | Some n ->
             let comp = create_complement set in
             if (All_sets.IntSetMap.mem set partition_map)
-                or (All_sets.IntSetMap.mem comp partition_map)
+                || (All_sets.IntSetMap.mem comp partition_map)
                 then begin
                     let t = All_sets.IntSetMap.find set partition_map in
                     add_two_lengths t n;

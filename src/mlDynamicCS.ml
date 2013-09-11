@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3459 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3536 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -90,7 +90,7 @@ let compare_combined_cm r1 r2 : bool =
         for j = 0 to (Array.length r1.(i))-1 do
             let t1 = ((fst r1.(i).(j)) = (fst r2.(i).(j)))
             and t2 = ((snd r1.(i).(j)) = (snd r2.(i).(j))) in
-            ret := !ret & t1 & t2;
+            ret := !ret && t1 && t2;
         done;
     done;
     !ret

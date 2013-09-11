@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "GenomeAli" "$Revision: 3459 $"
+let () = SadmanOutput.register "GenomeAli" "$Revision: 3536 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -853,10 +853,7 @@ let create_genome_blocks med1 med2 cost_mat chrom_pams =
         | _, _ -> ()    
     done;
     let is_overlaped gbcp4 gb_ls = 
-        let loci_overlaped s1 e1 s2 e2 = 
-            if (e1 < s2) or (e2 < s1) then false
-            else true
-        in 
+        let loci_overlaped s1 e1 s2 e2 = not (e1 < s2) || (e2 < s1) in 
         List.fold_left
             (fun overlaped gb2 -> 
                  let b1 = gbcp4.block and b2 = gb2.block in 

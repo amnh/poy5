@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3486 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3536 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -105,7 +105,7 @@ module F : Ptree.Tree_Operations
                             in
                             let () = Hashtbl.replace ret_table node_id tbl in
                             true
-                        with | Not_found -> (false or acc))
+                        with Not_found -> (false || acc))
                     false
                     partitions
                 in
