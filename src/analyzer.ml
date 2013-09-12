@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3539 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3540 $"
 
 let debug = false
 
@@ -1300,32 +1300,48 @@ let rec linearize2 queue acc =
                                         `UnionStored :: composerl, 
                                             `GetStored :: nextl) :: (!acc);
                         | `LocalOptimum l ->
+                                let rec singlize n = function
+                                  | [] -> []
+                                  | (`LocalOptimum l) :: xs -> 
+                                      (`LocalOptimum
+                                          {l with Methods.ss = `SingleNeighborhood n})
+                                      :: (singlize n xs)
+                                  | x::xs -> x :: (singlize n xs)
+                                in
                                 let composerl = ref []
                                 and nextl = ref []
                                 and iteml = ref [] in
-                                let todo =
-                                  let modify_space x = match x with
-                                    | `None
-                                    | `SingleNeighborhood _ -> x
-                                    | `ChainNeighborhoods n
-                                    | `Alternate (n,_) -> `SingleNeighborhood n
-                                  in
-                                  let opt = {l with ss = modify_space l.Methods.ss;} in
-                                  Tree {x with run = `LocalOptimum opt; }
-                                in
                                 linearize2 (single_queue y.todo_p) iteml;
                                 linearize2 (single_queue y.composer) composerl;
                                 linearize2 (single_queue y.next) nextl;
                                 let deps = (remove_all_trees_from_set (List.rev deps)) in
                                 let iteml = deps @ remove_trees_from_set (List.rev !iteml)
                                 and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
+                                Printf.printf "PARALLEL: %B\n%@" l.Methods.parallel;
                                 if l.Methods.parallel
                                 then
                                   let compl = `UnionStored :: `StoreTrees :: List.rev !composerl
                                   and restl = `GetStored :: (`UniqueNames l.Methods.keep) :: [] in
-                                  let fin  = `OnEachTree([],[`AssignTreeNames])::`Barrier::(!acc)
-                                  and par = [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,restl)] in
-                                  acc := nextl @ `Repeat (`TreeCostConverge,par) :: fin
+                                  let fst  = `OnEachTree([],[`AssignTreeNames])::`Barrier::(!acc) in
+                                  let par = match l.Methods.ss with
+                                      | `None
+                                      | `SingleNeighborhood _ ->
+                                          [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,restl)]
+                                      | `ChainNeighborhoods n ->
+                                          let iteml = singlize n iteml in
+                                            [`Repeat(`TreeCostConverge,
+                                              [ `Store (all_dependencies, my_name);
+                                                `ParallelPipeline (1,iteml,compl,restl); ])];
+                                      | `Alternate (a,b) ->
+                                          let iteml1 = singlize a iteml in
+                                          let iteml2 = singlize b iteml in
+                                          [`Repeat(`TreeCostConverge,
+                                                 [`Store (all_dependencies, my_name);
+                                                  `ParallelPipeline(1,iteml2,compl,restl);
+                                                  `Store (all_dependencies, my_name);
+                                                  `ParallelPipeline (1,iteml1,compl,restl)])]
+                                  in
+                                  acc := nextl @ par @ fst
                                 else
                                   acc :=
                                     nextl @
@@ -2145,6 +2161,9 @@ let rec parallel_analysis mine n (script : Methods.script list) =
                       [`GatherTrees (merger,[`GetStored]);meth;`SelectYourTrees]
                     in
                     script
+               | `Repeat(c,script) ->
+                   let script = parallel_analysis mine n script in
+                   [`Repeat(c,script);]
                | meth -> [meth]
             in
             meth @ script)
