@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3538 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3539 $"
 
 let debug = false
 
@@ -153,7 +153,7 @@ let dependency_relations (init : Methods.script) = match init with
             | `RandomTrees _
             | `BestN _
             | `BestWithin _
-            | `UniqueNames
+            | `UniqueNames _
             | `Unique -> [([Data;Trees], [Trees], init, Composable)]
         in
         res
@@ -1310,7 +1310,7 @@ let rec linearize2 queue acc =
                                     | `ChainNeighborhoods n
                                     | `Alternate (n,_) -> `SingleNeighborhood n
                                   in
-                                  let opt = {l with ss = modify_space l.ss;} in
+                                  let opt = {l with ss = modify_space l.Methods.ss;} in
                                   Tree {x with run = `LocalOptimum opt; }
                                 in
                                 linearize2 (single_queue y.todo_p) iteml;
@@ -1322,7 +1322,7 @@ let rec linearize2 queue acc =
                                 if l.Methods.parallel
                                 then
                                   let compl = `UnionStored :: `StoreTrees :: List.rev !composerl
-                                  and restl = `GetStored :: `UniqueNames :: [] in
+                                  and restl = `GetStored :: (`UniqueNames l.Methods.keep) :: [] in
                                   let fin  = `OnEachTree([],[`AssignTreeNames])::`Barrier::(!acc)
                                   and par = [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,restl)] in
                                   acc := nextl @ `Repeat (`TreeCostConverge,par) :: fin
@@ -1504,7 +1504,7 @@ let rec script_to_string (init : Methods.script) =
             | `BestN None -> "@[select the optimal trees@]"
             | `BestN (Some x) -> "@[select the best " ^ string_of_int x ^ "@ trees@]"
             | `BestWithin float -> "@[select the best within " ^ string_of_float float ^ " percent of the minimum@]"
-            | `UniqueNames ->  "@[eliminate trees with the same name@]"
+            | `UniqueNames _ ->  "@[eliminate trees with the same name@]"
             | `Unique -> "@[eliminate repeated trees@]"
         in
         res

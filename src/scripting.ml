@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3535 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3539 $"
 
 let (-->) a b = b a
 
@@ -2084,10 +2084,26 @@ let rec process_tree_handling run meth =
             Array_ops.randomize arr;
             let lst = Array.to_list arr in
             get_first_n n lst
-        | `UniqueNames ->
-            run.trees --> sort_trees
-                      --> List.fold_left (fun acc x -> TreeSet.add x acc) TreeSet.empty
-                      --> TreeSet.elements
+        | `UniqueNames meth ->
+            let meth = match meth with
+              | `Last -> (fun _ a -> a)
+              | `First -> (fun a _ -> a)
+              | `Keep_Random -> (fun a b -> if Random.bool () then a else b)
+            in
+            let cost a = Ptree.get_cost `Adjusted a in
+            run.trees
+              --> Sexpr.to_list
+              --> List.fold_left
+                    (fun acc x ->
+                      if TreeSet.mem x acc then
+                        let y = TreeSet.find x acc in
+                        if (cost x) < (cost y) then acc
+                        else if (cost x) = (cost y) then TreeSet.add (meth x y) acc
+                        else TreeSet.add y acc
+                      else
+                        TreeSet.add x acc)
+                    TreeSet.empty
+              --> TreeSet.elements
         | `Unique ->
             TS.get_unique (Sexpr.to_list run.trees)
     in
