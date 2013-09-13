@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3540 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3541 $"
 
 let debug = false
 
@@ -1317,7 +1317,6 @@ let rec linearize2 queue acc =
                                 let deps = (remove_all_trees_from_set (List.rev deps)) in
                                 let iteml = deps @ remove_trees_from_set (List.rev !iteml)
                                 and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
-                                Printf.printf "PARALLEL: %B\n%@" l.Methods.parallel;
                                 if l.Methods.parallel
                                 then
                                   let compl = `UnionStored :: `StoreTrees :: List.rev !composerl
