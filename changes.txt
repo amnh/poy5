@@ -9,6 +9,8 @@ New Features:
 Bugs Fixed:
   - Reading morphology under Nexus had errors in processing SYMBOLS.
   - Reading Nexus files with single quoted taxa-names failed.
+  - Parsering issue for trees with branch lengths in scientific notation and a
+    plus sign in their exponent, 1.0e+09. Now accept '+' symbol. (Thanks Cyrille)
 
 New Commands (see manual for full explanations):
   - Added documentation for commands in swap/build at_random, first, last. These

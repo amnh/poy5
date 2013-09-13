@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 3538 $"
+let () = SadmanOutput.register "Tree" "$Revision: 3543 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -1507,6 +1507,7 @@ module Parse = struct
             | 'E' -> read_branch_length ('E' :: acc)
             | '.' -> read_branch_length ('.' :: acc)
             | '-' -> read_branch_length ('-' :: acc)
+            | '+' -> read_branch_length ('+' :: acc)
             |  v   -> raise (Illegal_tree_format ("Unexpected Char "^(Char.escaped v)))
         in
 
