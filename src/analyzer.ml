@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3541 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3542 $"
 
 let debug = false
 
@@ -1336,9 +1336,9 @@ let rec linearize2 queue acc =
                                           let iteml2 = singlize b iteml in
                                           [`Repeat(`TreeCostConverge,
                                                  [`Store (all_dependencies, my_name);
-                                                  `ParallelPipeline(1,iteml2,compl,restl);
+                                                  `ParallelPipeline(1,iteml1,compl,restl);
                                                   `Store (all_dependencies, my_name);
-                                                  `ParallelPipeline (1,iteml1,compl,restl)])]
+                                                  `ParallelPipeline (1,iteml2,compl,restl)])]
                                   in
                                   acc := nextl @ par @ fst
                                 else
