@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3539 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3545 $"
 
 let (-->) a b = b a
 
@@ -2040,14 +2040,12 @@ let sort_trees trees =
     in
     List.sort comparison t
 
-  
 
-module OrderedTreeNames = struct
-    type t = tree
-    let compare a b = Pervasives.compare a.Ptree.tree.Tree.tree_name
-                                         b.Ptree.tree.Tree.tree_name
+module OrderedStringOpt = struct
+    type t = string option
+    let compare a b = Pervasives.compare a b
 end
-module TreeSet = Set.Make(OrderedTreeNames)
+module StringOptMap = Map.Make (OrderedStringOpt)
 
 let rec process_tree_handling run meth =
     let rec get_first_n n lst =
@@ -2089,21 +2087,26 @@ let rec process_tree_handling run meth =
               | `Last -> (fun _ a -> a)
               | `First -> (fun a _ -> a)
               | `Keep_Random -> (fun a b -> if Random.bool () then a else b)
-            in
+            and name t = t.Ptree.tree.Tree.tree_name in
             let cost a = Ptree.get_cost `Adjusted a in
             run.trees
               --> Sexpr.to_list
               --> List.fold_left
-                    (fun acc x ->
-                      if TreeSet.mem x acc then
-                        let y = TreeSet.find x acc in
-                        if (cost x) < (cost y) then acc
-                        else if (cost x) = (cost y) then TreeSet.add (meth x y) acc
-                        else TreeSet.add y acc
+                    (fun acc xt ->
+                      let x = name xt in
+                      if StringOptMap.mem x acc then
+                        let yt = StringOptMap.find x acc in
+                        if (cost xt) < (cost yt) then
+                          acc
+                        else if (cost xt) = (cost yt) then
+                          StringOptMap.add x (meth xt yt) acc
+                        else
+                          StringOptMap.add x yt acc
                       else
-                        TreeSet.add x acc)
-                    TreeSet.empty
-              --> TreeSet.elements
+                        StringOptMap.add x xt acc)
+                    StringOptMap.empty
+              --> StringOptMap.bindings
+              --> List.map snd
         | `Unique ->
             TS.get_unique (Sexpr.to_list run.trees)
     in
