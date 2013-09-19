@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 3459 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 3544 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format
@@ -41,7 +41,7 @@ let debug_breakfn_deltas = false
 let debug_joinfn = false
 let debug_costfn = false
 let debug_costfn2 = false
-let debug_incremental_downpass = false 
+let debug_incremental_downpass = false
 let debug_uppass_which_handle = false
 let debug_no_incremental = false
 let debug_diagnosis = false
@@ -165,14 +165,15 @@ let downpass_handle handle ({Ptree.tree=tree} as ptree) =
         ptree
 
 let downpass ({Ptree.tree=tree} as ptree) =
-    if debug_diagnosis then Printf.printf "Downpass Begins\n%!";
-    Handles.fold
+    let tree =
+      Handles.fold
         (downpass_handle)
         (Tree.get_handles tree)
         ptree
+    in
+    tree
 
 let uppass_handle handle ({Ptree.tree=tree} as ptree) =
-    if debug_diagnosis then Printf.printf "Uppass Begins\n%!";
     let ptree = 
         let d = match Ptree.get_node handle ptree with
             | Tree.Single _ -> 
@@ -287,10 +288,13 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
         ptree
 
 let uppass ({Ptree.tree=tree} as ptree) =
-    Handles.fold
+    let tree =
+      Handles.fold
         uppass_handle
         (Tree.get_handles tree)
         ptree
+    in
+    tree
 
 (** [downpass_cost_step ptree node_id c1 c2] will perform a downpass like step
  * in the node with id [node_id], which has children [c1] and [c2], where the only
@@ -332,35 +336,14 @@ let downpass_cost_step ptree node_id c1 c2 =
  * calculated data and the old data assigned to node_id if present, otherwise the
  * second element of the tuple is None *)
 let downpass_step ptree node_id c1 c2 =
-    let debug = false in
-    if debug then Printf.printf "downpass_step on c1=%d,c2=%d,%!" c1 c2;
-    let c1d = 
-        try Ptree.get_node_data c1 ptree
-        with Not_found -> failwith "Chartree.downpass_step c1d not found"
-    and c2d = 
-        try Ptree.get_node_data c2 ptree 
-        with Not_found -> failwith "Chartree.downpass_step c2d not found"
-    and selfdata = 
-        match node_id with
-        | None ->
-                if debug then Printf.printf "node_id=None,%!";
-                None
+    let c1d = Ptree.get_node_data c1 ptree
+    and c2d = Ptree.get_node_data c2 ptree 
+    and selfdata = match node_id with
+        | None   -> None
         | Some x -> 
-              if debug then Printf.printf "node_id=Some %d,%!" x;
-              try 
-                  Some (Ptree.get_node_data x ptree)
-              with 
-              | Not_found ->
-                      if debug then Printf.printf "node_id is not in ptree, return None\n%!";
-                      None
-              | err -> 
-                    let msg = 
-                        ("Failed to complete on " ^ string_of_int x)
-                    in
-                    Status.user_message Status.Error msg;
-                    raise err
+            try Some (Ptree.get_node_data x ptree)
+            with | Not_found -> None
     in
-    if debug then Printf.printf "call median function\n%!";
     (Node.Standard.median node_id selfdata c1d c2d), selfdata
 
 (** [iterate e (a,b)r t] iterates the branch lengths, for likelihood characters.
@@ -413,42 +396,26 @@ type tdp = MSame | MCost | MAll
  * downpass on [node_id] with children [c1] and [c2] for which downpass data has
  * already been calculated. According to the [continuation] flag, the appropriate
  * action is performed.  *)
-let simple_downpass ?(debug_joinfn=debug_joinfn) continuation ptree node_id c1 c2 =
+let simple_downpass continuation ptree node_id c1 c2 =
     match continuation with
-    | MSame -> if debug_incremental_downpass then  Printf.printf "simple_downpass with MSame,return\n%!"; 
-    Same
-    | MCost -> if debug_incremental_downpass then  Printf.printf
-    "simple_downpass with MCost\n%!"; 
-    Cost (downpass_cost_step ptree node_id c1 c2) 
-    | _ ->
-          if debug_incremental_downpass then Printf.printf "simple_downpass,%!";
-            (* The function to compare data *)
+    | MSame -> Same
+    | MCost -> Cost (downpass_cost_step ptree node_id c1 c2) 
+    | MAll  ->
           let cd = Node.compare_downpass in
           let median, selfd = 
               downpass_step ptree (Some node_id) c1 c2 
           in
-          let costa = median.Node.total_cost in
-          if debug_incremental_downpass then 
-              Printf.printf "new total_cost of node is %f,%!" costa;
+          let costa = Node.total_cost None median in
           match selfd with
           | Some s when ((0 = cd median s) 
-                         && (costa = s.Node.total_cost)
+                         && (costa = (Node.total_cost None s))
                          && (0 = compare median.Node.exclude_info s.Node.exclude_info)) -> 
-                if debug_incremental_downpass then Printf.printf "Same median, Same cost\n%!";
                 Same
           | Some s when (0 <> cd median s) ->
-                if debug_incremental_downpass then 
-                    Printf.printf "New median, possible new cost (old cost = %f)\n%!" s.Node.total_cost;
                 All (Ptree.add_node_data node_id median ptree)
           | Some s ->
-                if debug_incremental_downpass then  begin
-                    Printf.printf "Same median (old cost = %f,Only the cost has changed)\n%!" 
-                    s.Node.total_cost;
-                end;
                 Cost (Ptree.add_node_data node_id median ptree)
           | None ->
-                if debug_incremental_downpass then 
-                    Printf.printf "New cost and New median\n%!";
                 All (Ptree.add_node_data node_id median ptree)
 
 
@@ -476,9 +443,6 @@ let incremental_downpass_step continuation ptree node_id =
     | Tree.Interior (_, par, c1, c2) -> 
             (* We should try to continue, as an interior node could change if it
              * has new data in it's children *)
-            if debug_incremental_downpass then  
-                Printf.printf "incremental_downpass_step, children of %d are %d and %d and the parent \
-                is %d, call simple_down_pass\n%!" node_id c1 c2 par;
             simple_downpass continuation ptree node_id c1 c2
       | _ -> Same
 
@@ -574,32 +538,30 @@ let is_root_with_handle node ptree =
 * downpass, and the list of vertices that must be visited by an incremental
 * uppass. *)
 let rec aux_incremental_downpass continuation acc prev ptree node_id =
-    if debug_incremental_downpass then Printf.printf "aux_incremental_downpass on node.#.%d\n%!" node_id;
+    if debug_incremental_downpass then
+      Printf.printf "aux_incremental_downpass on node.#.%d\n%!" node_id;
     let ptree, continue =
         (* We just pass the continuation parameter to incremental_downpass_step
-        * to make the appropriate thing about it. *)
+          to make the appropriate thing about it. *)
         match incremental_downpass_step continuation ptree node_id with
         | Same -> ptree, MSame
         | Cost ptree -> ptree, MCost
         | All ptree -> ptree, MAll
     in
     if Tree.is_handle node_id ptree.Ptree.tree then begin 
-        if debug_incremental_downpass then  Printf.printf "back to aux_incremental_downpass, node#.%d is a handle,%!" node_id;
+        if debug_incremental_downpass then
+          Printf.printf "back to aux_incremental_downpass, node#.%d is a handle,%!" node_id;
         match Tree.get_node node_id ptree.Ptree.tree with
         | Tree.Interior (_, neigh, c1, c2) ->
-                if debug_incremental_downpass then Printf.printf "also a interior node(neigh=%d,c1=%d,c2=%d)\n%!"
-                neigh c1 c2;
+                if debug_incremental_downpass then
+                  Printf.printf "also a interior node(neigh=%d,c1=%d,c2=%d)\n%!" neigh c1 c2;
                 let acc = add_to_accumlator continue acc c1 c2 node_id prev in
                 (calculate_root ptree node_id neigh,
                 (match acc, prev with
                 | (_ :: tl), None ->
-                        (`HandleNC (node_id, node_id) ::
-                            `HandleNC (neigh, node_id) ::
-                                tl)
+                    (`HandleNC (node_id, node_id) :: `HandleNC (neigh, node_id) :: tl)
                 | (_ :: tl), Some _ ->
-                        (`HandleC (node_id, node_id) ::
-                            `HandleNC (neigh, node_id) ::
-                                tl)
+                    (`HandleC (node_id, node_id) :: `HandleNC (neigh, node_id) :: tl)
                 | [], _ -> 
                         failwith "Unexpected aux_incremental_downpass"))
         | Tree.Leaf (_, neigh) ->
@@ -614,8 +576,8 @@ let rec aux_incremental_downpass continuation acc prev ptree node_id =
         if debug_incremental_downpass then Printf.printf "back to aux_incremental_downpass, node#.%d is root with handle,%!" node_id;
         match Tree.get_node node_id ptree.Ptree.tree with
         | Tree.Interior (_, handle, c1, c2) ->
-                if debug_incremental_downpass then Printf.printf "and it is a \
-                interior node(handle=%d,c1=%d,c2=%d)\n %!" handle c1 c2;
+                if debug_incremental_downpass then
+                  Printf.printf "and it is a interior node(handle=%d,c1=%d,c2=%d)\n %!" handle c1 c2;
                 let acc = add_to_accumlator continue acc c1 c2 node_id prev in
                 (calculate_root ptree node_id handle,
                 (match acc, prev with
@@ -653,9 +615,7 @@ let rec aux_incremental_downpass continuation acc prev ptree node_id =
         | Tree.Leaf _ -> ptree, acc
     end
 
-let rec incremental_downpass_path_to_handle acc prev ptree =
-    if debug_incremental_downpass then Printf.printf "incremental_downpass_path_to_handle,%!";
-    function
+let rec incremental_downpass_path_to_handle acc prev ptree = function
     | [] -> ptree, acc
     | [h] ->
             assert (Tree.is_handle h ptree.Ptree.tree);
@@ -796,8 +756,7 @@ let show_stat = false
 
 let print_id id =
     if show_stat then 
-        Status.user_message Status.Information ("Uppass on " ^ string_of_int
-        id)
+        Status.user_message Status.Information ("Uppass on " ^ string_of_int id)
     else ()
 
 let rec incremental_uppass ptree = function
@@ -859,7 +818,6 @@ let set_clade_root ptree clade_node new_clade_handle =
         Ptree.assign_root_to_connected_component handle None cost None ptree
 
 let update_tree_data_break doup delta ptree =
-    if debug_joinfn then Printf.printf "update tree data break, do uppass after downpass?%b,%!" doup;
     match delta with
     | `Edge (nid, l1, l2, handle) ->
             let ptree = Ptree.remove_node_data nid ptree in
@@ -868,20 +826,11 @@ let update_tree_data_break doup delta ptree =
                     (match Tree.get_node v ptree.Ptree.tree with
                     | Tree.Interior (_, neigh, _, _)
                     | Tree.Leaf (_, neigh) ->
-                            if debug_joinfn then begin
-                                Printf.printf "Handle passed in is %d\n%!" (Ptree.handle_of
-                                l1 ptree);
-                                Printf.printf "call incremental downpass in break of vertex %d.\n%!" l1;
-                            end;
                             let nt, todo = incremental_downpass l1 ptree in
                             if not doup then nt, todo 
                             else incremental_uppass nt todo, []
                     | Tree.Single _ -> ptree, [])
             | None ->
-                    if debug_joinfn then begin
-                        Printf.printf "My current handle is %d\n%!" (Ptree.handle_of l1 ptree);
-                        Printf.printf "call incremental downpass in break of vertex %d.\n%!" l1;
-                    end;
                     let nt, updlt = incremental_downpass l1 ptree in
                     if not doup then nt, updlt
                     else incremental_uppass nt updlt, [])
@@ -903,30 +852,25 @@ let reroot_fn (_ : bool) edge ptree =
     let ptree = Ptree.remove_root_of_component my_handle ptree in
     let ptree, path = Ptree.move_handle h ptree in
     let ptree = Ptree.fix_handle_neighbor h n ptree in
-    incremental_downpass_path_to_handle [] None ptree path
+    let result = incremental_downpass_path_to_handle [] None ptree path in
+    result
+
+let get_nodes = Ptree.get_nodes
 
 (* break_fn must have type handle * node -> tree -> tree * delta * aux_data *)
 let break_fn (tree_node, clade_node_id) ptree =
-    if debug_joinfn then Printf.printf "chartree.break_fn begins\n%!";
     let Tree.Edge (tree_node, clade_node_id) = 
-        Tree.normalize_edge (Tree.Edge (tree_node, clade_node_id)) 
-        ptree.Ptree.tree 
+        Tree.normalize_edge (Tree.Edge (tree_node, clade_node_id)) ptree.Ptree.tree 
     in
     let jxn = (tree_node, clade_node_id) in
     let prev_cost = Ptree.get_cost `Adjusted ptree in
     (* Figure out the clade root node *)
-    let clade_node = 
-        (Ptree.get_node_data (Tree.int_of_id clade_node_id) ptree)
-    in
+    let clade_node = (Ptree.get_node_data (Tree.int_of_id clade_node_id) ptree) in
     (* Get rid of old uppass data *)
     let clade_node = Node.Standard.fix_preliminary clade_node in
-    (* Print the tree if asked *)
-    if debug_print_on_break then print_node_data_indent ptree;
     (* Perform the break *)
     let nbt, tree_delta = Tree.break jxn ptree.Ptree.tree in
-    let tree_handle, clade_handle =
-        Tree.get_break_handles tree_delta nbt 
-    in
+    let tree_handle, clade_handle = Tree.get_break_handles tree_delta nbt in
     let ptree = 
         ptree 
             --> Ptree.remove_root_of_component tree_node
@@ -938,21 +882,20 @@ let break_fn (tree_node, clade_node_id) ptree =
     let new_cost = Ptree.get_cost `Adjusted ptree in
     (* Compare costs *)
     let b_delta =
-        if prev_cost = infinity && new_cost = infinity
+        if prev_cost >= infinity && new_cost >= infinity
         then 0.
         else prev_cost -. (new_cost -. ptree.Ptree.origin_cost)
     in
-    if debug_breakfn_deltas then 
-        odebug ("old cost " ^ string_of_float prev_cost
-                 ^ " and new cost " ^ string_of_float new_cost);
+    if debug_breakfn_deltas then
+        odebug (Printf.sprintf "old cost %f and new cost %f w/ delta %f"
+                                  prev_cost new_cost b_delta);
     if debug_joinfn then begin
         let tc = Ptree.get_cost `Adjusted ptree in
         Printf.printf "call force_downpass for DEBUG\n%!";
         let nt = force_downpass ptree in
         let nc = Ptree.get_cost `Adjusted nt in
         if nc <> tc then begin
-            Printf.printf "The calculated cost is %f but the real cost is \
-            %f.\n%!" tc nc;
+            Printf.printf "The calculated cost is %f but the real cost is %f.\n%!" tc nc;
             failwith "Break update is failing";
         end;
     end;
@@ -971,7 +914,6 @@ let break_fn (tree_node, clade_node_id) ptree =
         let (left, right) = tree_delta in
         extract_side tree_handle left, extract_side clade_handle right
     in
-    if debug_joinfn then Printf.printf "chartree.break_fn ends\n%!";
     {
         Ptree.ptree = ptree; 
         tree_delta = tree_delta;
@@ -1035,14 +977,13 @@ let join_topologies_and_data jxn1 jxn2 ptree =
     let ptree = { ptree with Ptree.tree = ret } in
     let v, ptree = prepare_tree_for_downpass ptree tree_delta in
     let ptree, updt = 
-        if debug_joinfn then begin
+        if debug_joinfn then
             Printf.printf "I will do the downpass on node#.%d\n%!" v;
-            (*Ptree.print_node_data_keys ptree;*)
-        end;
         incremental_downpass v ptree
     in
-    if debug_joinfn then Printf.printf "end of join_topologies_and_data, return \
-    tree with cost %f\n%!" (Ptree.get_cost `Adjusted ptree);
+    if debug_joinfn then
+      Printf.printf "end of join_topologies_and_data, cost %f\n%!"
+                    (Ptree.get_cost `Adjusted ptree);
     ptree, v, tree_delta, updt
 
 (* join_fn must have type join_1_jxn -> join_2_jxn -> delta -> tree -> tree *)
@@ -1053,8 +994,7 @@ let join_fn incremental jxn1 jxn2 ptree =
     ptree, tree_delta
 
 let cost_fn jxn1 jxn2 delta clade_data tree =
-    if debug_costfn2 then Printf.printf "chartree.cost_fn with %!";
-    if debug_costfn2 then begin
+    if debug_costfn then begin
         (* check clade_data against jxn2 *)
         match jxn2 with
         | Tree.Single_Jxn h ->
@@ -1068,19 +1008,16 @@ let cost_fn jxn1 jxn2 delta clade_data tree =
                            (Ptree.get_node_data h tree)
                            (Ptree.get_node_data n tree)))
     end;
-    match jxn1 with
-    | Tree.Single_Jxn h ->
+    let cost = match jxn1 with
+      | Tree.Single_Jxn h ->
           if debug_costfn2 then Printf.printf "jxn1 = Single %d,%!" h;
           Ptree.Cost
               (Node.Standard.distance 0.
                    (Ptree.get_node_data (Tree.int_of_id h) tree)
                    clade_data)
-    | Tree.Edge_Jxn (h, n) ->
-        if debug_costfn2 then Printf.printf "jxn1 = Edge (%d,%d),%!" h n;
-          let h, n =
-              if Ptree.is_edge (Tree.Edge (h, n)) tree
-              then h, n
-              else n, h in
+      | Tree.Edge_Jxn (h, n) ->
+          if debug_costfn2 then Printf.printf "jxn1 = Edge (%d,%d),%!" h n;
+          let Tree.Edge (h,n) = Tree.normalize_edge (Tree.Edge (h,n)) tree.Ptree.tree in
           let ndata = Ptree.get_node_data n tree in
          (* We must check whether our parent is the handle, and, if we are
             the handle's "parent," then our real parent is the virtual
@@ -1090,16 +1027,18 @@ let cost_fn jxn1 jxn2 delta clade_data tree =
           let hdata =
               Ptree.get_parent_or_root_data n tree in
           let cost = Node.dist_2 delta clade_data hdata ndata in
-          if debug_costfn2 then Printf.printf "return cost from Node.dist_2 = %f\n%!" cost;
+          if debug_costfn2 then
+            Printf.printf "return cost from Node.dist_2 = %f\n%!" cost;
           Ptree.Cost (cost)
+    in
+    cost
 
 let within_threshold b a = b < (a +. (a *. 0.05))
 
 let exact_cost_fn jxn1 jxn2 delta clade_data ptree =
-    if debug_costfn2 then Printf.printf "chartree.exact_cost_fn,%!";
     (*call cost_fn to get the cost by Node.dist_2*)
-    match cost_fn jxn1 jxn2 delta clade_data ptree with
-    | (Ptree.Cost v) as res ->
+    let cst = match cost_fn jxn1 jxn2 delta clade_data ptree with
+        | (Ptree.Cost v) as res ->
             if debug_costfn2 then Printf.printf "new treecost = %f, %!" v;
             (*if (cost return by dist_2) < 1.05*(best cost by dist_2 so far)*)
             if within_threshold v delta then
@@ -1129,7 +1068,9 @@ let exact_cost_fn jxn1 jxn2 delta clade_data ptree =
                 if debug_costfn2 then Printf.printf "new treecost = %f, is NOT good enough,return tree cost itself\n" v;
                 res
             end
-    | x -> x
+        | x -> x
+    in
+    cst
 
 let incremental_downpass_path ptree path =
     incremental_downpass_path_to_handle [] None ptree path
@@ -1138,17 +1079,18 @@ let rec features meth lst =
     let `LocalOptimum (meth) = meth in
     
     let hood =
-        let t = function
-            | `Spr -> "spr"
-            | `Tbr -> "tbr" in
+        let t = function `Spr -> "spr" | `Tbr -> "tbr" in
         match meth.Methods.ss with
         | `SingleNeighborhood x -> "single-" ^ t x
         | `ChainNeighborhoods x -> t x
         | `Alternate (x, y) -> "alternate-" ^ t x ^ "-" ^ t y
         | `None -> "none" in
     let lst = ("type", hood) :: lst in
-    let lst = ("origin-cost", match meth.Methods.oo with None -> "none"
-               | Some cost -> string_of_float cost) :: lst in
+    let lst = ("origin-cost",
+                match meth.Methods.oo with
+                | None -> "none"
+                | Some cost -> string_of_float cost) :: lst
+    in
     let lst =
         match meth.Methods.tm with
         | `BestFirst -> ("trajectory", "best-first") :: lst
@@ -1408,15 +1350,6 @@ let to_formatter diag_report_type atr tree : Xml.xml =
     (tag, atr, (`Set data))
 
 
-let root_costs tree = 
-    All_sets.Integers.fold (fun handle acc ->
-        let get_cost edge acc = 
-            let ntree, _ = reroot_fn false edge tree in
-            (Tree.Continue, (((edge, Ptree.get_cost `Adjusted ntree) :: acc)))
-        in
-        Ptree.pre_order_edge_visit get_cost handle tree acc)
-    (Tree.get_handles tree.Ptree.tree) []
-
 let total_cost ptree adj chars =
     let total_handle_cost acc h =
         match (Ptree.get_component_root h ptree).Ptree.root_median with
@@ -1429,6 +1362,18 @@ let total_cost ptree adj chars =
         (fun handle acc_cost -> total_handle_cost acc_cost handle)
         (Ptree.get_handles ptree)
         0.0
+
+let root_costs tree = 
+    All_sets.Integers.fold (fun handle acc ->
+        let get_cost edge acc = 
+            let ntree, _ = reroot_fn false edge tree in
+(*             (Tree.Continue, (((edge, Ptree.get_cost `Adjusted ntree) :: acc))) *)
+            (Tree.Continue, (((edge, total_cost ntree `Adjusted None) :: acc)))
+        in
+        Ptree.pre_order_edge_visit get_cost handle tree acc)
+    (Tree.get_handles tree.Ptree.tree) []
+
+
 
 let refresh_all_edges a b c d = d
 

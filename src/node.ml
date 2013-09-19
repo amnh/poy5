@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3479 $"
+let () = SadmanOutput.register "Node" "$Revision: 3544 $"
 
-let infinity = float_of_int max_int
+let infinity = float_of_int (max_int/2)
 
 open Numerical.FPInfix
 
@@ -242,7 +242,7 @@ type exclude = ([`Excluded | `NotExcluded | `Either] * int * int * int) list
 type node_data =
     {
         characters : cs list;
-        total_cost : float;
+        total_cost : [`Infinity | `Cost of float];
         node_cost : float;
         taxon_code : int;
         min_child_code : int;
@@ -356,6 +356,30 @@ let mapN f in_lstlst =
     done;
     !res_lst
 
+let excludes_median a b =
+    let exclude_median = function
+        | `Excluded, `Excluded -> 0, `Excluded
+        | `NotExcluded, `NotExcluded -> 0, `NotExcluded
+        | `Either, `Either -> 0, `Either
+        | `Either, a -> 0, a
+        | a, `Either -> 0, a
+        | `Excluded, `NotExcluded
+        | `NotExcluded, `Excluded -> 1, `Either
+    in
+    List.map2
+        (fun (s1, c1, card, count1) (s2, c2, _, count2) ->
+             let cost, med = exclude_median (s1, s2) in
+             (med, c1 + c2 + cost, card, count1 + count2))
+        a.exclude_info
+        b.exclude_info
+
+let has_excluded list =
+    let excluded (_, cost, size, count) =
+        cost = 1 && count = size in
+    List.exists excluded list
+
+
+
 
 let recode f n = 
     { n with taxon_code = f n.taxon_code }
@@ -393,7 +417,7 @@ let character_costs node =
 
 let empty cost_mode = {
     characters = [];
-    total_cost = 0.0;
+    total_cost = `Cost 0.0;
     node_cost = 0.0;
     taxon_code = -1;
     min_child_code = 0;
@@ -405,36 +429,48 @@ let empty cost_mode = {
     cost_mode = cost_mode;
 }
 
+let total_cost _ a = match a.total_cost with
+  | `Infinity -> infinity
+  | `Cost x   -> x
+
+let add_total_costs a b = match a,b with
+  | `Infinity,_
+  | _,`Infinity     -> `Infinity
+  | `Cost a,`Cost b -> `Cost (a +. b)
+
+and add_to_total_costs a x = match a with
+  | `Infinity -> `Infinity
+  | `Cost a   -> `Cost (a +. x)
+
 let print nd = 
     Printf.printf "{ taxon_code = %d, total_cost = %f, node_cost = %f \n%!"
-    nd.taxon_code nd.total_cost nd.node_cost;
+                  nd.taxon_code (total_cost None nd) nd.node_cost;
     let count = ref 0 in
-    List.iter 
-        (fun a_cs ->
+    List.iter2
+        (fun a_cs (x,a,b,c) ->
             count := !count + 1;
             match a_cs with
             | Dynamic a_dyn ->
-                Printf.printf "character#.%d, cost = %f, sum_cost = %f \n%!" 
-                !count a_dyn.cost a_dyn.sum_cost;
+                Printf.printf "character#.%d, cost = %f, sum_cost = %f, ex = %s\n%!" 
+                !count a_dyn.cost a_dyn.sum_cost
+                (match x with `Excluded -> "yes" | `NotExcluded -> "no" | `Either -> "maybe");
                 print_endline "Preliminary state";
                 DynamicCS.print a_dyn.preliminary;
                 print_endline "Final state";
                 DynamicCS.print a_dyn.final;
             | _ -> print_endline "Do not print non-dynamic characters")
-        nd.characters;
+        nd.characters
+        nd.exclude_info;
     Printf.printf " }\n%!"
-    
-let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
+ 
+let to_string ({characters=chs; taxon_code=tax_code} as nd) =
     Printf.sprintf
         "@[<2>Node@ tax_code=%d@ total_cost=%f@ elts:@ @[%s@]@]@."
-        tax_code cost (String.concat ";@ "(List.map to_string_ch chs))
+        tax_code (total_cost None nd) (String.concat ";@ "(List.map to_string_ch chs))
 
 (*** Helper functions for node data ***)
 let cs_prelim_to_final a =
     {a with final = a.preliminary}
-
-
-let total_cost _ a = a.total_cost
 
 let rec prelim_to_final = function
     | StaticMl a -> 
@@ -577,8 +613,9 @@ let cs_update_cost_only mine ch1 ch2 =
 
 (* calculate the median between two nodes *)
 let rec cs_median code anode bnode prev t1 t2 a b =
-    if debug_cs_median then Printf.printf "node.cs_median, on node %d and %d:\n%!"
-	anode.taxon_code bnode.taxon_code;
+    if debug_cs_median then
+      Printf.printf "node.cs_median, on node %d and %d (%s):\n%!"
+          anode.taxon_code bnode.taxon_code (cs_string a);
     match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
@@ -1034,16 +1071,20 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
         | [],[],[] -> pa
         | _ -> failwith "Number of characters is inconsistent"
     in
-    let mine, sumcost_list =
-        List.split ( List.rev (ei_map c0.characters c1.characters c2.characters
-        []) )
-    in
-    let mine_cost = get_characters_cost mine in
-    let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
-    { c0 with characters = mine;
-              total_cost = total_cost;
-              node_cost  = mine_cost;
-    }
+    let new_exclude_info = excludes_median c1 c2 in
+    if has_excluded new_exclude_info then
+        { c0 with total_cost = `Infinity; exclude_info = new_exclude_info; }
+    else
+        let mine, sumcost_list =
+            List.split (List.rev (ei_map c0.characters c1.characters c2.characters []))
+        in
+        let mine_cost = get_characters_cost mine in
+        let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
+        { c0 with characters = mine;
+                  total_cost = `Cost total_cost;
+                  node_cost  = mine_cost;
+                exclude_info = new_exclude_info;
+        }
     ELSE
         c0
     END
@@ -1248,28 +1289,6 @@ let new_node_stats a b =
     let num_height = (max a.num_height b.num_height) + 1 in
     (num_child_edges, num_height)
     
-let excludes_median a b =
-    let exclude_median = function
-        | `Excluded, `Excluded -> 0, `Excluded
-        | `NotExcluded, `NotExcluded -> 0, `NotExcluded
-        | `Either, `Either -> 0, `Either
-        | `Either, a -> 0, a
-        | a, `Either -> 0, a
-        | `Excluded, `NotExcluded
-        | `NotExcluded, `Excluded -> 1, `Either
-    in
-    List.map2
-        (fun (s1, c1, card, count1) (s2, c2, _, count2) ->
-             let cost, med = exclude_median (s1, s2) in
-             (med, c1 + c2 + cost, card, count1 + count2))
-        a.exclude_info
-        b.exclude_info
-
-let has_excluded list =
-    let excluded (_, cost, size, count) =
-        cost = 1 && count = size in
-    List.exists excluded list
-
 let root_cost root =
     let adder acc character = 
         match character with
@@ -1402,27 +1421,21 @@ let convert_2_lst chars tbl : float option list =
 (** [update_cost_only mine child1 child2] update mine with new sum_cost,
 * calculated by new sum_cost of child1 or/and child2*)
 let update_cost_only mine child1 child2 = 
-    let debug = false in
-    let new_exclude_info = 
-        excludes_median child1 child2
-    in
+    let new_exclude_info = excludes_median child1 child2 in
     let new_excluded = has_excluded new_exclude_info in
-    if new_excluded then (*only update total_cost to inf*)
-        { mine with total_cost = infinity; exclude_info = new_exclude_info; }
-    else (*update sum_cost of each character, then the total_cost*)
+    if new_excluded then begin (*only update total_cost to inf*)
+      { mine with
+        total_cost = `Infinity;
+        exclude_info = new_exclude_info; }
+    end else (*update sum_cost of each character, then the total_cost*)
         let characters_with_new_cost, sumcost_list = List.split (
             map3 (fun a b c -> cs_update_cost_only a b c) mine.characters child1.characters child2.characters )
         in
-        let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in
-        let _ = 
-            if debug then Printf.printf 
-            "update total_cost=%f only to node#.%d (old cost = %f, ch1(%d,%f),ch2(%d,%f)\n%!"
-            total_cost mine.taxon_code mine.total_cost child1.taxon_code child1.total_cost
-            child2.taxon_code child2.total_cost;
-        in
-        {mine with 
-            characters = characters_with_new_cost; 
-            total_cost = total_cost;
+        let t_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in
+        {mine with
+            characters = characters_with_new_cost;
+            total_cost = `Cost t_cost;
+            node_cost = t_cost -. (total_cost None mine) -. mine.node_cost;
             exclude_info = new_exclude_info;
         }
 
@@ -1436,33 +1449,28 @@ let median ?branches code old a b =
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
     let new_characters,sumcost_list =
-        List.split (
-        match old with
+      List.split (match old with
         | None -> 
-            if debug_treebuild then info_user_message "node.ml median begin of map4";
             map4 (cs_median code a b None) brancha branchb 
                  a.characters b.characters
         | Some c ->
-            if debug_treebuild then info_user_message "node.ml median begin of map5";
             map5 (fun x -> cs_median code a b (Some x)) c.characters
-                 brancha branchb a.characters b.characters
-        )
+                 brancha branchb a.characters b.characters)
     in
-    let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
     let node_cost  = get_characters_cost new_characters in
-    if debug_treebuild then
-         Printf.printf  "end of mapx in node.ml,return nodedata with node_cost=%f,total_cost=%f\n%!" 
-	node_cost total_cost;
-    if debug_treebuild then
-         info_user_message "end of mapx in node.ml,return nodedata with node_cost=%f,total_cost=%f" 
-	node_cost total_cost;
     let num_child_edges, num_height = new_node_stats a b in
     let exclude_info = excludes_median a b in
     let excluded = has_excluded exclude_info in
-    let results = 
-        { 
+    let total_cost = match a.total_cost,b.total_cost with
+      | `Infinity,_
+      | _,`Infinity -> `Infinity
+      | _,_ when excluded -> `Infinity
+      | _,_ -> `Cost (List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list)
+    in
+    let results =
+        {
             characters = new_characters;
-            total_cost = if excluded then infinity else total_cost;
+            total_cost = total_cost;
             node_cost = node_cost;
             taxon_code = code;
             min_child_code = min a.min_child_code b.min_child_code;
@@ -1553,15 +1561,18 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 times_3 =
         )
     in
     let node_cost = get_characters_cost new_characters in
-    let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in
     let num_child_edges, num_height = new_node_stats nd_1 nd_2
     and exclude_info = excludes_median nd_1 nd_2 in
     let excluded = has_excluded exclude_info in
-    if debug_treebuild then
-         Printf.printf "end of median_w_times, node.ml.tottal_cost=%f\n\n%!" total_cost;
+    let total_cost = match nd_1.total_cost, nd_2.total_cost with
+      | `Infinity,_
+      | _,`Infinity -> `Infinity
+      | _,_ when excluded -> `Infinity
+      | _,_ -> `Cost (List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list)
+    in
     let node = 
       { characters = new_characters;
-        total_cost = if excluded then infinity else total_cost;
+        total_cost = total_cost;
         node_cost = node_cost;
         taxon_code = code;
         min_child_code = min nd_1.min_child_code nd_2.min_child_code;
@@ -1583,25 +1594,13 @@ let median_of_child_branch code child parent =
     median_w_times code None child parent times otime None
 
 let final_states p n c1 c2 =
-    let debug = false in
-    if debug then begin
-        Printf.printf "node.ml final_states, parent is:\n%!";
-        print p;
-        Printf.printf "mine is :\n%!";
-        print n;
-        Printf.printf "child 1 is :\n%!";
-        print c1;
-        Printf.printf "child 2 is :\n%!";
-        print c2;
-        Printf.printf "call median3 to assign final states\n%!";
-    end;
     let new_characters =
         map4 (cs_final_states p n c1 c2)
         p.characters n.characters c1.characters c2.characters
     in { n with characters = new_characters }
 
 let median_no_cost median =
-    { median with total_cost = 0.0; }
+    { median with total_cost = `Cost 0.0; }
     
 let median_self_cost a = a.node_cost
 
@@ -1615,7 +1614,7 @@ let update_leaf n =
                  else (`NotExcluded, 0, card, 0))
             n.exclude_sets in
     { n with
-          total_cost = 0.;
+          total_cost = `Cost 0.;
           exclude_info = exclude_info;
     }
 
@@ -2100,11 +2099,8 @@ let dist_2 minimum_delta n a b =
     in
     let excludes = excludes_median n a in
     if has_excluded excludes
-    then infinity
-    else 
-        let res = chars 0. (n.characters, a.characters, b.characters) in
-        if debug then Printf.printf "return join cost = %f\n%!" res;
-        res
+      then infinity
+      else chars 0. (n.characters, a.characters, b.characters)
 
 
 (* used in the node interface to build branch tables for output and reorganizing
@@ -2635,7 +2631,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
             in
             let result = {
                 characters = [];
-                total_cost = 0.;
+                total_cost = `Cost 0.;
                 node_cost = 0.;
                 taxon_code = tcode;
                 min_child_code = tcode;
@@ -2763,9 +2759,10 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                             List.fold_left (fun acc c -> acc +.  c.sum_cost) 0. c 
                         in
                         let c = List.map (fun c -> Kolmo c) c in
-                        { result with characters = c @ result.characters; 
-                        total_cost = total_cost +. result.total_cost;
-                        node_cost = total_cost +. result.node_cost;}
+                        { result with
+                            characters = c @ result.characters; 
+                            total_cost = add_to_total_costs result.total_cost total_cost;
+                            node_cost = total_cost +. result.node_cost;}
             in
             let result = (* ML *)
                 let single_ml_group =
@@ -2807,7 +2804,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
                                            time = None,None,None; }
                             in
                             { result with characters = c :: result.characters;
-                                          total_cost = result.total_cost +. cost; })
+                                          total_cost = add_to_total_costs result.total_cost cost; })
                   ELSE
                     (fun result _ -> result)
                   END
@@ -2917,7 +2914,7 @@ let structure_into_sets data (nodes : node_data list) =
     let eg_node =
         { 
             characters = [];
-            total_cost = 0.;
+            total_cost = `Cost 0.;
             node_cost = 0.;
             taxon_code = -1;
             min_child_code = -1;
@@ -3410,22 +3407,25 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         | Set c1, Set c2, Set parent, Set mine -> Set mine, mine.sum_cost
         | _ -> failwith "Wrong type in matching, node.ml readjust"
     in
-    if mine.total_cost = infinity then 
-        mine, !modified
-    else begin
-        let characters, sumcost_list = 
-            List.split (map4 cs_readjust ch1.characters ch2.characters
-                             parent.characters mine.characters )
-        in
-        let node_cost = get_characters_cost characters in
-        let total_cost = List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list in 
-        let res = 
-            { mine with characters = characters; 
-                        total_cost = total_cost; 
-                         node_cost = node_cost; }
-        in
-        res, !modified
-    end
+    let new_excluded = excludes_median ch1 ch2 in
+    let characters, sumcost_list = 
+        List.split (map4 cs_readjust ch1.characters ch2.characters
+                          parent.characters mine.characters )
+    in
+    let node_cost = get_characters_cost characters in
+    let total_cost = match ch1.total_cost,ch2.total_cost with
+      | `Infinity,_
+      | _,`Infinity -> `Infinity
+      | _,_ when has_excluded new_excluded -> `Infinity
+      | _,_ -> `Cost (List.fold_left (fun acc x -> acc +. x ) 0. sumcost_list)
+    in
+    let res = 
+        { mine with characters = characters; 
+                    total_cost = total_cost; 
+                  exclude_info = new_excluded;
+                      node_cost = node_cost; }
+    in
+    res, !modified
 
 let to_single_root (pre_ref_codes, fi_ref_codes) mine =
     to_single (pre_ref_codes, fi_ref_codes) true (Some mine) mine mine
@@ -3713,7 +3713,7 @@ let to_formatter_subtree diag_report_type (pre_ref_codes, fi_ref_codes)
                  [match parent_node_data_opt with 
                   | None -> `Float 0. (*that's why in diagnosis, the "Cost"
                   under "root" is 0, while "Rearrangement cost" is not*)
-                  | _ -> `Float node_data.total_cost])
+                  | _ -> `Float (total_cost None node_data)])
             ([T.recost] = [`Float subtree_recost])
             ([T.node_cost] = [`Float subtree_recost])
             ([T.name] = [`String node_name])
@@ -4509,7 +4509,7 @@ let for_support starting leaves leaves_id nodes =
                      leaf_data.characters charlist 
             in
              { characters = cslist;
-               total_cost = 0.;
+               total_cost = `Cost 0.;
                node_cost = 0.;
                taxon_code = id;
                min_child_code = id;
@@ -4626,8 +4626,8 @@ module Standard :
         let root_cost = root_cost
         let extra_cost_from_root = extra_cost_from_root
         let tree_cost a b =
-		    let tc = (root_cost b) +. (total_cost a b) in
-		    let ec = (extra_cost_from_root b tc) in 
+		        let tc = (root_cost b) +. (total_cost a b) in
+    		    let ec = (extra_cost_from_root b tc) in
             tc -. ec
         let to_single root _ a _ b sets =
             let combine = match root with
@@ -4756,9 +4756,10 @@ module Standard :
 end 
 
 let merge a b =
+  Printf.printf "CALL TO MERGE\n%!";
     { a with
         characters = a.characters @ b.characters;
-        total_cost = a.total_cost +. b.total_cost;
+        total_cost = add_total_costs a.total_cost b.total_cost;
         node_cost = a.node_cost +. b.node_cost;
     }
 

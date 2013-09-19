@@ -11,6 +11,9 @@ Bugs Fixed:
   - Reading Nexus files with single quoted taxa-names failed.
   - Parsering issue for trees with branch lengths in scientific notation and a
     plus sign in their exponent, 1.0e+09. Now accept '+' symbol. (Thanks Cyrille)
+  - Under bremer (w/ negative constraints), nodes with excluded partitions were
+    not properly scored (as infinity); this resulted in trees with lower score
+    than expected during the bremer search.
 
 New Commands (see manual for full explanations):
   - Added documentation for commands in swap/build at_random, first, last. These

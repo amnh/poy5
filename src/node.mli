@@ -80,7 +80,8 @@ type exclude = ([`Excluded | `NotExcluded | `Either] * int * int * int) list
 
 type node_data = { 
     characters : cs list;   (** The set of characters of the [ho]tu *)
-    total_cost : float;     (** The total cost of the tree rooted by the node *)
+    total_cost : [`Infinity | `Cost of float];
+                            (** The total cost of the tree rooted by the node *)
     node_cost : float;
     taxon_code : int;       (** The code of the taxon associated with the node *)
     min_child_code : int;

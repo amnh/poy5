@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Support" "$Revision: 3459 $"
+let () = SadmanOutput.register "Support" "$Revision: 3544 $"
 
 let infinity = float_of_int (max_int / 4)
 
@@ -280,7 +280,7 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n)
                             if xc < tree_cost then begin
                                 Status.user_message Status.Error 
                                 ("The following tree was found@ during a Bremer@ " ^
-                                "support@ search@ and has better cost:");
+                                 "support@ search@ and has better cost:"^(string_of_float xc));
                                 PTS.report_trees [`Cost] None (`Single x);
                             end else ();
                             match acc with
