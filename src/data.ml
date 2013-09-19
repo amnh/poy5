@@ -1268,6 +1268,25 @@ let reverse_dynamic_static_codes map =
         All_sets.IntSetMap.empty
 
 
+
+let group_by_weight data codes : int list list =
+  let m =
+    List.fold_left
+        ~f:(fun m code ->
+            let weight = get_weight code data in
+            let v = 
+                if All_sets.FloatMap.mem weight m
+                  then All_sets.FloatMap.find weight m
+                  else []
+            in
+            All_sets.FloatMap.add weight (code::v) m)
+        ~init:All_sets.FloatMap.empty
+        codes
+  in
+  let pairs = All_sets.FloatMap.bindings m in
+  List.map snd pairs
+
+
 (** Convert characters in n33 classification to gen-nonadditve characters.
  * source contains old matrices from the dynamic characters necessary for the
  * general non-additive prealigned character. *)
@@ -1348,13 +1367,22 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
     let c =
         List.fold_left
             ~f:(fun acc x -> (adder new_specs new_chars new_names new_codes x)::acc)
-            ~init:[] codes
+            ~init:[]
+            codes
     in
     { data with
         character_codes = new_codes;
         character_names = new_names;
         character_specs = new_specs;
         taxon_characters= new_chars; } --> categorize, c
+
+let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
+  List.fold_left
+    ~f:(fun (data,acc) codes ->
+        let data,nacc = convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes in
+        data,(nacc@acc))
+    ~init:(data,[])
+    (group_by_weight data codes)
 
 
 (* [convert_dynamic_to_static_branches src dest] Use the static_dynamic_codes
@@ -6687,12 +6715,9 @@ module Sample = struct
     let generate data perturb =
         let arr = characters_to_arr data.character_specs in
         let data = duplicate data in
-        let arr =
-            match perturb with
-            | `Bootstrap -> 
-                    bootstrap_spec arr (Array.length arr)
-            | `Jackknife m ->
-                    jackknife_spec arr m 
+        let arr = match perturb with
+            | `Bootstrap -> bootstrap_spec arr (Array.length arr)
+            | `Jackknife m -> jackknife_spec arr m 
         in
         Array.iter (fun (cnt, code, spec) ->
             Hashtbl.replace data.character_specs code 
