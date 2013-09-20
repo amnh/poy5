@@ -160,10 +160,7 @@ let median cost_mat a b =
 let median_3_fake cost_mat parent mine child1 child2 =
     let medpc1,dist1 = median cost_mat parent child1 in
     let medpc2,dist2 = median cost_mat parent child2 in
-    if dist1<dist2 then
-        medpc1
-    else
-        medpc2
+    if dist1<dist2 then medpc1 else medpc2
     
 (* [median_3] determine the cost of aligning the three sequences *)
 let median_3 cost_mat3 cost_mat2 parent mine child1 child2 =
@@ -201,6 +198,7 @@ let to_single alph cost_mat parent mine =
     | _,true  -> parent,0.0
     | false,false ->
         let arrclosest =
+            assert( (Sequence.length parent.seq) = (Array.length parent.weights) );
             Array.mapi
                 (fun i weight ->
                     let codep = Sequence.get parent.seq i
