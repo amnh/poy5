@@ -37,7 +37,7 @@ let (-->) a b = b a
 
 let init_gnonadd_t in_seq weights =
   let weights = match weights with
-    | None -> Array.make (Sequence.length in_seq) 1.0
+    | None   -> Array.make (Sequence.length in_seq) 1.0
     | Some x -> x
   in
   { seq = in_seq; costs = { min = 0.0; max = 0.0 }; weights = weights; }

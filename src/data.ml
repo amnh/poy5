@@ -261,7 +261,7 @@ type cs_d =
     | FS of int 
     (** A static homology character, containing its code, and the character
         itself *)
-    | Stat of (int * Nexus.File.static_state )
+    | Stat of (int * Nexus.File.static_state)
 
 type cs = cs_d * specified
 
@@ -2182,9 +2182,15 @@ let repack_codes data =
 
 
 
-let add_character data file tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight = 
+let add_character data file tcmfile tcm_full tcm_original tcm3 default_mode
+                  lk_model alphabet dyna_state dyna_pam weight len = 
         incr data.character_code_gen;
         let chcode = !(data.character_code_gen) in
+        let default_mode = match default_mode with
+          | `GeneralNonAdd None     -> `GeneralNonAdd (Some (Array.make len 1.))
+          | `GeneralNonAdd (Some x) when (Array.length x) = len -> default_mode
+          | x                       -> x
+        in
         let dspec = {
             filename = file;
             fs = data.current_fs_file;
@@ -2242,22 +2248,12 @@ let process_parsed_breakinv data res original_filename file tcmfile tcm_full
         ) file_taxon_chrom_loci_frag_seq
     in
     let parsed_bkinv_seq = get_multichrom_and_delimiter res in
-    if debug_parsed_seq then begin
-        Printf.printf "parsed bkinv seq = \n%!";
-    List.iter(fun (seq,delilst,taxon) ->
-        Sequence.printseqcode seq;
-        Printf.printf " deli= %!";
-        Utl.printIntArr (Array.of_list delilst);
-    ) parsed_bkinv_seq;
-    end;
     let process_a_taxon (data,chcode) (singleseq,delilst,taxon) =
-        let data, tcode =
-            process_taxon_code data taxon original_filename
-        in
+        let data, tcode = process_taxon_code data taxon original_filename in
         let tl = get_taxon_characters data tcode in
         let seqa = 
             {seq = singleseq; 
-            delimiter= if (List.length delilst)>1 then delilst else [] ; 
+            delimiter= if (List.length delilst)>1 then delilst else [];
             code= -1}
         in
         let dyna_data = { seq_arr = [|seqa|]; } in
@@ -2268,10 +2264,13 @@ let process_parsed_breakinv data res original_filename file tcmfile tcm_full
         Hashtbl.replace data.taxon_characters tcode tl;
         data,chcode
     in
-    let chcode,newdata = add_character data file 
-    tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight in
-    let resdata,_ = List.fold_left ~f:process_a_taxon ~init:(newdata,chcode)
-    parsed_bkinv_seq in
+    let chcode,newdata =
+      add_character data file tcmfile tcm_full tcm_original tcm3 default_mode
+                    lk_model alphabet dyna_state dyna_pam weight 1
+    in
+    let resdata,_ =
+      List.fold_left ~f:process_a_taxon ~init:(newdata,chcode) parsed_bkinv_seq
+    in
     resdata
     
 let process_parsed_genome data res original_filename file tcmfile tcm_full
@@ -2306,9 +2305,9 @@ let process_parsed_genome data res original_filename file tcmfile tcm_full
                         max_chrom_len := max !max_chrom_len (Sequence.length chrom);
                         (chrom, name)))
     in
-    let chcode, data =  add_character data file tcmfile tcm_full tcm_original
-                                      tcm3 default_mode lk_model alphabet
-                                      dyna_state dyna_pam weight
+    let chcode, data = 
+      add_character data file tcmfile tcm_full tcm_original tcm3 default_mode lk_model
+                    alphabet dyna_state dyna_pam weight 1
     in
     Array.fold_left
         ~f:(fun data chrom_arr ->
@@ -2346,9 +2345,8 @@ let process_parsed_genome data res original_filename file tcmfile tcm_full
         
 (* normal sequence, sequence could be divided by fragment "#" *)
 let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
-                                   tcm_original tcm3 default_mode lk_model
-                                   alphabet dyna_state dyna_pam weight
-                                   prealigned domerge =
+        tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam
+        weight prealigned domerge =
     let get_multi_segment_seq file_taxon_chrom_loci_frag_seq =
         (* input seq list list list list become a matrix looks like this:
         * [ 
@@ -2421,9 +2419,7 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
     let process_a_taxon (data,chcode) (seqarr, taxon)  = 
         (* Here is where, at the parser level, the fixed
          * states support should be added *)
-        let data, tcode =
-            process_taxon_code data taxon original_filename
-        in
+        let data, tcode = process_taxon_code data taxon original_filename in
         let tl = get_taxon_characters data tcode in
         let seqa =
             let makeone seqa = {seq=seqa; delimiter=[]; code = -1} in
@@ -2438,39 +2434,45 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
                 Array.map (fun x -> makeone (Sequence.del_first_char x)) seqarr
         in
         let dyna_data = { seq_arr = seqa; } in 
-        let () = 
+        let () =
             let spc =
                 let maxlen =
-                    Array.fold_left ~f:(fun acc x ->
-                        max acc (Sequence.length x.seq)) ~init:0 seqa
+                    Array.fold_left
+                        ~f:(fun acc x -> max acc (Sequence.length x.seq))
+                        ~init:0 seqa
                 in
-                if 2 <= maxlen 
-                    then `Specified else 
-                if prealigned && maxlen <> 0
-                    then `Specified 
+                if 2 <= maxlen
+                    then `Specified
+                else if prealigned && maxlen <> 0
+                    then `Specified
                     else `Unknown
             in
-            if debug_parsed_seq then begin
-                Printf.printf "replace taxon_characters.taxon code=%d,character code=%d with %!"
-            tcode chcode;
-            Array.iter (fun seq -> Sequence.printseqcode seq;) seqarr;
-            end;
-            Hashtbl.replace tl chcode (Dyna (chcode, dyna_data),spc) 
+            Hashtbl.replace tl chcode (Dyna (chcode, dyna_data),spc)
         in
         Hashtbl.replace data.taxon_characters tcode tl;
         data,chcode
     in
-    let filename_with_charactorNO = 
+    let filename_with_charactorNO =
         let c = ref (-1) in
         ref (fun () -> incr c; original_filename ^ ":" ^ string_of_int !c)
     in
     (*work on the taxon seq list belong to a fragment *)
     let fold_over_a_taxon_lst olddata lst  =
         (*create new character for each fragment*)
-        let chcode, newdata = add_character olddata (!(filename_with_charactorNO) ())
-        tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight in
-        let resdata,_ = List.fold_left ~f:process_a_taxon ~init:(newdata,chcode) lst 
+        let len =
+          List.fold_left
+            ~f:(fun acc (x,_) ->
+                  Array.fold_left
+                      ~f:(fun acc x -> acc+(Sequence.length x))
+                      ~init:acc x)
+            ~init:0
+            lst
         in
+        let chcode, newdata =
+          add_character olddata (!(filename_with_charactorNO) ()) tcmfile tcm_full
+              tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight len
+        in
+        let resdata,_ = List.fold_left ~f:process_a_taxon ~init:(newdata,chcode) lst in
         resdata
     in
     if domerge then
@@ -2526,7 +2528,8 @@ let process_annotated_chrom data res original_filename file tcmfile tcm_full
     let num_loci = Array.length mat.(0) in
     if debug_parsed_seq then Printf.printf "process_annotated_chrom,num_loci=%d,num_taxa=%d\n%!"
     num_loci num_taxa;
-    let chcode, data = add_character data file tcmfile tcm_full tcm_original tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight in
+    let chcode, data = add_character data file tcmfile tcm_full tcm_original
+    tcm3 default_mode lk_model alphabet dyna_state dyna_pam weight 1 in
     data.seg_code_gen := 0;
     let rec add_taxon data t = match t >= num_taxa with
         | true -> data
@@ -2573,7 +2576,7 @@ let process_annotated_chrom data res original_filename file tcmfile tcm_full
     
 
 let process_parsed_sequences prealigned weight tcmfile tcm_full tcm_original tcm3
-    default_mode annotated alphabet file dyna_state data res lk_model dyna_pam =
+        default_mode annotated alphabet file dyna_state data res lk_model dyna_pam =
     let data = duplicate data in
     let original_filename = file in
     let locus_name =
@@ -6664,43 +6667,63 @@ let compare_pairs ch1 ch2 complement data =
 
 module Sample = struct
 
-    let characters_to_arr chars =
-        Array.of_list (Hashtbl.fold (fun code spec acc ->
-            (0, code, spec) :: acc) chars [])
+    let characters_to_arr data chars : (int * int * int * specs) array =
+        Hashtbl.fold
+            (fun code spec acc ->
+                let expanded = match spec with
+                  | Dynamic x when x.state = `SeqPrealigned ->
+                    let y = match x.initial_assignment with
+                      | `GeneralNonAdd (Some y) -> Array.length y
+                      | _ -> assert false
+                    in
+                    Array.init y (fun i -> (0,code,i,spec)) --> Array.to_list
+                  | (Dynamic _  | Static _ | Kolmogorov _ | Set) -> [(0,code,0,spec)]
+                in
+                expanded :: acc)
+            chars []
+          --> List.flatten
+          --> Array.of_list
 
-    let bootstrap_spec ?(rand = Random.int) arr m =
+    let bootstrap_spec ?(rand = Random.int) arr m : (int * int * int * specs) array =
         let n = Array.length arr in
         if n > 0 then begin
             for i = 0 to m do
                 let p = rand n in
-                let (cnt, code, spec) = arr.(p) in
-                arr.(p) <- (cnt + 1, code, spec);
+                let (cnt, code,num, spec) = arr.(p) in
+                arr.(p) <- (cnt + 1, code, num, spec);
             done;
             arr
         end else arr
 
     (** [jackknife_spec ar m] resamples [Array.length ar - m] characters without
         replacement uniformly at random *)
-    let jackknife_spec ar prob =
+    let jackknife_spec ar prob : (int * int * int * specs) array =
         let n = Array.length ar in
         assert (prob <= 1.);
         for i = 0 to n - 1 do
             if prob < (Random.float 1.) then
-                let (_, code, spec) = ar.(i) in
-                ar.(i) <- (1, code, spec);
+                let (_, code,num, spec) = ar.(i) in
+                ar.(i) <- (1, code, num, spec);
         done;
         ar
 
     let generate data perturb =
-        let arr = characters_to_arr data.character_specs in
+        let arr  = characters_to_arr data data.character_specs in
         let data = duplicate data in
         let arr = match perturb with
-            | `Bootstrap -> bootstrap_spec arr (Array.length arr)
+            | `Bootstrap   -> bootstrap_spec arr (Array.length arr)
             | `Jackknife m -> jackknife_spec arr m 
         in
-        Array.iter (fun (cnt, code, spec) ->
-            Hashtbl.replace data.character_specs code 
-                    (set_weight_factor (float_of_int cnt) spec)) arr;
+        Array.iter (fun (cnt, code, num, spec) -> match spec with
+            | Dynamic x when x.state = `SeqPrealigned ->
+                begin match x.initial_assignment with
+                  | `GeneralNonAdd (Some x) -> x.(num) <- float_of_int cnt;
+                  | _ -> assert false
+                end
+            | _ ->
+                Hashtbl.replace data.character_specs
+                        code (set_weight_factor (float_of_int cnt) spec))
+            arr;
         data
 
 end
