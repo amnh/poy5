@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 3459 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 3547 $"
 
 
 let sort_using_tree tree all_taxa =
@@ -264,10 +264,9 @@ module Make
                     List.fold_left (fun acc code ->
                         match Hashtbl.find data.Data.character_specs code with
                         | Data.Dynamic x -> 
-                             (match x.Data.initial_assignment with
-                             |`GeneralNonAdd -> acc
-                             | _ -> code::acc
-                             )
+                            (match x.Data.initial_assignment with
+                              |`GeneralNonAdd _ -> acc
+                              | _ -> code::acc)
                         | _ -> code :: acc
                     ) [] char_codes
                 in

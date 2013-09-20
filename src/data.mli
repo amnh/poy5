@@ -91,7 +91,7 @@ val default_tcm : tcm_definition
 type dyna_initial_assgn = [ 
     | `Partitioned of clip
     | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
-    | `GeneralNonAdd
+    | `GeneralNonAdd of float array option
     | `DO ]
 
 type dynamic_hom_spec = {

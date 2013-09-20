@@ -30,12 +30,17 @@ type cost_tuple =
 type gnonadd_sequence = {
     seq : Sequence.s;
     costs : cost_tuple;
+    weights : float array;
 }
 
 let (-->) a b = b a
 
-let init_gnonadd_t in_seq = 
-    { seq = in_seq; costs = { min = 0.0; max = 0.0 }; }
+let init_gnonadd_t in_seq weights =
+  let weights = match weights with
+    | None -> Array.make (Sequence.length in_seq) 1.0
+    | Some x -> x
+  in
+  { seq = in_seq; costs = { min = 0.0; max = 0.0 }; weights = weights; }
 
 let get_max_cost ct = ct.max
 
@@ -43,7 +48,6 @@ let get_min_cost ct = ct.min
 
 (*[make_cost tmpcost] make cost_tuple with tmpcost -- to do: what is maxcost?*)
 let make_cost tmpcost = 
-    let tmpcost = float_of_int tmpcost in
     {min = tmpcost; max= tmpcost}
 
 (*[get_cost] and [get_median] are two functions from cost_matrx*)
@@ -66,22 +70,23 @@ let is_empty seq cst = Sequence.is_empty seq (Cost_matrix.Two_D.gap cst)
 let get_distance gnoadd1 gnoadd2 cost_mat =
     let seq1,seq2 = gnoadd1.seq,gnoadd2.seq in
     if is_empty seq1 cost_mat then
-        0,seq2
+        0.0,seq2
     else if is_empty seq2 cost_mat then
-        0,seq1
+        0.0,seq1
     else begin
         assert ((Sequence.length seq1) = (Sequence.length seq2) );
-        let arr1,arr2 = Sequence.to_array seq1, Sequence.to_array seq2 in
-        let rescost = ref 0 in
+        let rescost = ref 0.0 in
         let medarr = match Cost_matrix.Two_D.get_cost_model cost_mat with
             | Cost_matrix.No_Alignment
             | Cost_matrix.Linnear ->
-                Array_ops.map_2
-                    (fun code1 code2 ->
-                        let c = get_cost code1 code2 cost_mat in
-                        rescost := !rescost + c;
+                Array.mapi
+                    (fun i weight ->
+                        let code1 = Sequence.get seq1 i
+                        and code2 = Sequence.get seq2 i in
+                        let c = float_of_int (get_cost code1 code2 cost_mat) in
+                        rescost := !rescost +. (c *. weight);
                         get_median code1 code2 cost_mat)
-                    arr1 arr2
+                    gnoadd2.weights
             | Cost_matrix.Affine _ -> assert false
         in
         !rescost, Sequence.of_array medarr
@@ -94,26 +99,26 @@ let get_distance gnoadd1 gnoadd2 cost_mat =
 let get_distance_3d gnoadd1 gnoadd2 gnoadd3 cost_mat cost_mat2 =
     let seq1,seq2,seq3 = gnoadd1.seq,gnoadd2.seq,gnoadd3.seq in
     match (is_empty seq1 cost_mat2),(is_empty seq2 cost_mat2),(is_empty seq3 cost_mat2) with
-    | true, true, _    -> 0, seq3
-    | true, _, true    -> 0, seq2
-    | _, true, true    -> 0, seq1
+    | true, true, _    -> 0.0, seq3
+    | true, _, true    -> 0.0, seq2
+    | _, true, true    -> 0.0, seq1
     | true,false,false -> get_distance gnoadd2 gnoadd3 cost_mat2
     | false,true,false -> get_distance gnoadd1 gnoadd3 cost_mat2
     | false,false,true -> get_distance gnoadd1 gnoadd2 cost_mat2
     | false,false,false->
         assert( ((Sequence.length seq1) = (Sequence.length seq2))
              && ((Sequence.length seq3) = (Sequence.length seq2)) );
-        let arr1 = Sequence.to_array seq1 in
-        let arr2 = Sequence.to_array seq2 in
-        let arr3 = Sequence.to_array seq3 in
-        let rescost = ref 0 in
+        let rescost = ref 0.0 in
         let medarr =
-            Array_ops.map_3
-                (fun code1 code2 code3 ->
-                    let c = get_cost3d code1 code2 code3 cost_mat in
-                    rescost := !rescost + c;
+            Array.mapi
+                (fun i weight ->
+                    let code1 = Sequence.get seq1 i
+                    and code2 = Sequence.get seq2 i
+                    and code3 = Sequence.get seq3 i in
+                    let c = float_of_int (get_cost3d code1 code2 code3 cost_mat) in
+                    rescost := !rescost +. (c *.weight);
                     get_median3d code1 code2 code3 cost_mat)
-                arr1 arr2 arr3
+                gnoadd1.weights
         in
         !rescost, Sequence.of_array medarr
 
@@ -128,15 +133,16 @@ let distance gnoadd1 gnoadd2 cost_mat =
 let get_max_distance gnoadd1 gnoadd2 cost_mat = 
     let seq1,seq2 = gnoadd1.seq,gnoadd2.seq in
     if (is_empty seq1 cost_mat) then
-        0
+        0.0
     else if (is_empty seq2 cost_mat) then
-        0
+        0.0
     else begin
-        assert( (Sequence.length seq1) = (Sequence.length seq2) );
-        let arr1,arr2 = Sequence.to_array seq1, Sequence.to_array seq2 in
-        Array_ops.fold_right_2
-            (fun acc code1 code2 -> acc + (get_worst_cost code1 code2 cost_mat))
-            0 arr1 arr2
+        assert((Sequence.length seq1) = (Sequence.length seq2));
+        Sequence.foldi_2
+            (fun acc i code1 code2 ->
+                let ncost = float_of_int (get_worst_cost code1 code2 cost_mat) in
+                acc +. (ncost *. gnoadd1.weights.(i)))
+            0.0 seq1 seq2
     end
 
 
@@ -147,7 +153,7 @@ let max_distance gnoadd1 gnoadd2 cost_mat =
 (** [median cost_mat a b] return median of two general nonaddictive sequence*)
 let median cost_mat a b =
     let dis, medseq = get_distance a b cost_mat in
-    {seq = medseq; costs = make_cost dis },dis
+    {seq = medseq; costs = make_cost dis; weights = a.weights},dis
 
 (*when there is no 3d matrix, what do we do for median3 function? 
 *  we align both child and parent, then return the better one *)
@@ -162,7 +168,7 @@ let median_3_fake cost_mat parent mine child1 child2 =
 (* [median_3] determine the cost of aligning the three sequences *)
 let median_3 cost_mat3 cost_mat2 parent mine child1 child2 =
     let dis, medseq = get_distance_3d parent child1 child2 cost_mat3 cost_mat2 in
-    { seq = medseq; costs = make_cost dis }
+    { seq = medseq; costs = make_cost dis; weights = child1.weights; }
 
 
 (* get closest code for code2 based on code1 *)
@@ -180,7 +186,7 @@ let get_closest_code alph cost_mat code1 code2 =
                             else lower_cost)
                         Utl.large_int comblst1
                 in
-                if lowest_cost < acc_cost then lowest_cost,c2 
+                if lowest_cost < acc_cost then lowest_cost,c2
                 else acc_cost,acc_c2)
             (Utl.large_int,(-1))
             comblst2
@@ -191,15 +197,16 @@ let get_closest_code alph cost_mat code1 code2 =
 * on parent. return cost between parent and new single*)
 let to_single alph cost_mat parent mine =
     match is_empty parent.seq cost_mat, is_empty mine.seq cost_mat with
-    | true, _ -> mine,0
-    | _,true  -> parent,0
+    | true, _ -> mine,0.0
+    | _,true  -> parent,0.0
     | false,false ->
-        let arrp = Sequence.to_array parent.seq
-        and arrm = Sequence.to_array mine.seq in
         let arrclosest =
-            Array_ops.map_2
-                (fun codep codem -> get_closest_code alph cost_mat codep codem)
-                arrp arrm
+            Array.mapi
+                (fun i weight ->
+                    let codep = Sequence.get parent.seq i
+                    and codem = Sequence.get mine.seq i in
+                    get_closest_code alph cost_mat codep codem)
+                parent.weights
         in
         let newsingle = { mine with seq = Sequence.of_array arrclosest } in
         let cst = distance parent newsingle cost_mat in

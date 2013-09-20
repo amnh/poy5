@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3459 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3547 $"
 
 let debug = false
 let debug_distance = false
@@ -2029,11 +2029,11 @@ let of_array spec sc code taxon =
                         clip 
                         spec.Data.alph)
                 with Not_found -> PartitionedDOS.empty clip size spec.Data.alph)
-        | `GeneralNonAdd, [|x|] ->
-            General_Prealigned (GenNonAdd.init_gnonadd_t x)
+        | `GeneralNonAdd w, [|x|] ->
+            General_Prealigned (GenNonAdd.init_gnonadd_t x w)
         | `DO, [|x|] ->
             Heuristic_Selection (DOS.create x)
-        | (`AutoPartitioned _ | `GeneralNonAdd | `DO), _ -> assert false
+        | (`AutoPartitioned _ | `GeneralNonAdd _ | `DO), _ -> assert false
     in
     let codes = Array.map snd sc in
     let characters = Array.map create_item sc in
@@ -2187,58 +2187,49 @@ let readjust alph mode to_adjust modified ch1 ch2 parent mine =
 
 
 let to_single parent mine opt_root =
-    let total_cost = ref 0 in
+    let total_cost = ref 0.0 in
     let characters = match opt_root with 
     | Some root ->
         Array_ops.map_3
             (fun a b c -> match a, b, c with
                 | General_Prealigned a, General_Prealigned b, General_Prealigned c ->
                     let res, c = GenNonAdd.to_single mine.alph mine.heuristic.c2_full a b in
-                    total_cost := c + !total_cost;
+                    total_cost := c +. !total_cost;
                     General_Prealigned res
                 | Partitioned a, Partitioned b,Partitioned c ->
                     let res, c = PartitionedDOS.to_single mine.heuristic a b in
-                    total_cost := c + !total_cost;
+                    total_cost := (float_of_int c) +. !total_cost;
                     Partitioned res
                 | Heuristic_Selection a, Heuristic_Selection b,Heuristic_Selection c ->
                     let res, c = DOS.to_single mine.heuristic a b (Some c) in
-                    total_cost := c + !total_cost;
+                    total_cost := (float_of_int c) +. !total_cost;
                     Heuristic_Selection res
-                | Partitioned _, _, _
-                | _, Partitioned _, _
-                | General_Prealigned _, _, _ 
-                | Heuristic_Selection _, General_Prealigned _, _
-                | (Heuristic_Selection _, Heuristic_Selection _,
-                    (General_Prealigned _|Partitioned _)) -> assert false)
+                | (Heuristic_Selection _ | General_Prealigned _ | Partitioned _),_,_ -> assert false)
             parent.characters mine.characters root.characters 
     | None ->
         Array_ops.map_2
             (fun a b -> match a, b with
                 | General_Prealigned a, General_Prealigned b ->
                     let res, c = GenNonAdd.to_single mine.alph mine.heuristic.c2_full a b in
-                    total_cost := c + !total_cost;
+                    total_cost := c +. !total_cost;
                     General_Prealigned res
                 | Partitioned a, Partitioned b ->
                     let res, c = PartitionedDOS.to_single mine.heuristic a b in
-                    total_cost := c + !total_cost;
+                    total_cost := (float_of_int c) +. !total_cost;
                     Partitioned res
                 | Heuristic_Selection a, Heuristic_Selection b ->
                     let res, c = DOS.to_single mine.heuristic a b None in
-                    total_cost := c + !total_cost;
+                    total_cost := (float_of_int c) +. !total_cost;
                     Heuristic_Selection res
-                | Partitioned _, _
-                | _, Partitioned _
-                | General_Prealigned _, _
-                | Heuristic_Selection _, General_Prealigned _ -> assert false)
+                | (Heuristic_Selection _ | General_Prealigned _ | Partitioned _),_ -> assert false)
             parent.characters
             mine.characters
     in
-    let total_cost = float_of_int !total_cost in
-    mine.total_cost, total_cost, { mine with characters = characters; }
+    mine.total_cost, !total_cost, { mine with characters = characters; }
 
 
 let median code a b =
-    let total_cost = ref 0 in
+    let total_cost = ref 0.0 in
     let h = a.heuristic in
     let alph = a.alph in
     let use_ukk = match !Methods.algn_mode with
@@ -2251,26 +2242,24 @@ let median code a b =
                 | General_Prealigned a, General_Prealigned b ->
                     (*Printf.printf "General Prealigned,%!"; *)
                     let res, c = GenNonAdd.median h.c2_full a b in
-                    total_cost := c + !total_cost;
+                    total_cost := c +. !total_cost;
                     General_Prealigned res
                 | Partitioned a, Partitioned b ->
                     (*Printf.printf "Partitioned,%!";*)
                     let res, c = PartitionedDOS.median alph code h a b use_ukk in
-                    total_cost := c + !total_cost;
+                    total_cost := (float_of_int c) +. !total_cost;
                     Partitioned res
                 | Heuristic_Selection a, Heuristic_Selection b ->
                     (*Printf.printf "Heuristic Selection,%!";*)
                     let res, c = DOS.median alph code h a b use_ukk in
-                    total_cost := c + !total_cost;
+                    total_cost := (float_of_int c) +. !total_cost;
                     Heuristic_Selection res
-                | Partitioned _, _
-                | Heuristic_Selection _,_
-                | General_Prealigned _,_ -> assert false)
+                | (Partitioned _ | Heuristic_Selection _ | General_Prealigned _),_ -> assert false)
             a.characters
             b.characters
     in
     { a with 
-        characters = characters; total_cost = float_of_int !total_cost }
+        characters = characters; total_cost = !total_cost }
 
 
 (*median_3 is called throught node.ml [cs_final_states], to assign final states to each internal node*)
@@ -2307,7 +2296,7 @@ let median_3 p n c1 c2 =
         generic_map_4 DOS.median_3_union (GenNonAdd.median_3 cm3)
                 p.characters n.characters c1.characters c2.characters cm2 cm2 use_ukk
     in
-    let characters = 
+    let characters =
         let has_combinations = 1 = Cost_matrix.Two_D.combine cm2 in
         if has_combinations then median_union () else median_no_union ()
     in
@@ -2336,19 +2325,18 @@ let distance missing_distance a b =
         | `Algn_Newkk  -> true
         | `Algn_Normal -> false
     in
-    float_of_int
-        (Array_ops.fold_right_2
-            (fun acc a b -> match a, b with
-                | Partitioned a, Partitioned b ->
-                    acc + (PartitionedDOS.distance alph h missing_distance a b use_ukk)
-                | General_Prealigned a, General_Prealigned b ->
-                    acc + (GenNonAdd.distance a b h.c2_original)
-                | Heuristic_Selection a, Heuristic_Selection b ->
-                    acc + (DOS.distance alph h missing_distance a b use_ukk) 
-                | Partitioned _, _
-                | Heuristic_Selection _, _ 
-                | General_Prealigned _, _ -> assert false)
-            0 a.characters b.characters)
+    (Array_ops.fold_right_2
+        (fun acc a b -> match a, b with
+            | Partitioned a, Partitioned b ->
+                acc +. float_of_int (PartitionedDOS.distance alph h missing_distance a b use_ukk)
+            | General_Prealigned a, General_Prealigned b ->
+                acc +. (GenNonAdd.distance a b h.c2_original)
+            | Heuristic_Selection a, Heuristic_Selection b ->
+                acc +. float_of_int (DOS.distance alph h missing_distance a b use_ukk) 
+            | Partitioned _, _
+            | Heuristic_Selection _, _ 
+            | General_Prealigned _, _ -> assert false)
+        0.0 a.characters b.characters)
 
 let dist_2 delta n a b =
     let h = n.heuristic in
@@ -2358,28 +2346,26 @@ let dist_2 delta n a b =
         | `Algn_Normal -> false
     in
     let x, deltaleft =
-        Array_ops.fold_right_3 (fun (acc, deltaleft) n a b ->
-            if deltaleft < 0 then (max_int / 10, deltaleft)
-            else
-                match n, a, b with
+        Array_ops.fold_right_3
+          (fun (acc, deltaleft) n a b ->
+            if deltaleft < 0 then
+              ((float_of_int (max_int / 10)), deltaleft)
+            else match n, a, b with
                 | Partitioned n, Partitioned a, Partitioned b ->
-                        let cost = PartitionedDOS.dist_2 h n a b use_ukk in
-                        (acc + cost), (deltaleft - cost)
-                | General_Prealigned n, General_Prealigned a, 
-                General_Prealigned b ->
+                    let cost = PartitionedDOS.dist_2 h n a b use_ukk in
+                    (acc +. (float_of_int cost)), (deltaleft - cost)
+                | General_Prealigned n, General_Prealigned a, General_Prealigned b ->
                     failwith "we don't have dist_2 for general prealigned data-type yet"
-                | Heuristic_Selection n, 
-                    Heuristic_Selection a, Heuristic_Selection b ->
-                        let cost = DOS.dist_2 h n a b use_ukk in
-                        (acc + cost), (deltaleft - cost)
+                | Heuristic_Selection n, Heuristic_Selection a, Heuristic_Selection b ->
+                    let cost = DOS.dist_2 h n a b use_ukk in
+                    (acc +. (float_of_int cost)), (deltaleft - cost)
                 | Partitioned _, _, _
-                | _, Partitioned _, _
-                | _, _, Partitioned _
                 | General_Prealigned _ , _, _
-                | Heuristic_Selection _ , _ , _ -> assert false) (0, delta) 
-                        n.characters a.characters b.characters
+                | Heuristic_Selection _ , _ , _ -> assert false)
+          (0.0, delta)
+          n.characters a.characters b.characters
     in
-    float_of_int x 
+    x
 
 
 let f_codes memf s c = 
@@ -2392,8 +2378,7 @@ let f_codes memf s c =
             characters := s.characters.(i) :: !characters;
         end;
     done;
-    { s with codes = Array.of_list !codes; characters = Array.of_list
-    !characters }
+    { s with codes = Array.of_list !codes; characters = Array.of_list !characters }
 
 let f_codes_comp s c = 
     f_codes (fun a b -> not (All_sets.Integers.mem a b)) s c

@@ -30,23 +30,24 @@ type cost_tuple =
 type gnonadd_sequence = {
     seq : Sequence.s;
     costs : cost_tuple;
+    weights : float array;
 }
 
-(** [init_gnonadd_t inseq] create a new gnoadd with input seq*)
-val init_gnonadd_t : Sequence.s -> gnonadd_sequence
+(** [init_gnonadd_t inseq weights] create a new gnoadd with input seq*)
+val init_gnonadd_t : Sequence.s -> float array option -> gnonadd_sequence
 
 (**[to_single alph cost_mat parent mine] return single assignment of mine based
     on parent. return cost between parent and new single*)
 val to_single :
-    Alphabet.a -> Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence * int
+    Alphabet.a -> Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence * float
 
 (**[distance gnoadd1 gnoadd2 cost_mat] return distance between two sequence.*)
 val distance :
-    gnonadd_sequence -> gnonadd_sequence -> Cost_matrix.Two_D.m -> int
+    gnonadd_sequence -> gnonadd_sequence -> Cost_matrix.Two_D.m -> float
 
 (** [median cost_mat a b] return median of two general nonaddictive sequence*)
 val median :
-    Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence * int
+    Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence * float
 
 (** [median_3_fake h parent mine child1 child2] *)
 val median_3_fake : Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence ->

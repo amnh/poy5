@@ -14,6 +14,8 @@ Bugs Fixed:
   - Under bremer (w/ negative constraints), nodes with excluded partitions were
     not properly scored (as infinity); this resulted in trees with lower score
     than expected during the bremer search.
+  - Correctly implemented the prealigned amino-acid characters to accept
+    resampling support techniques (jackkknife and bootstrap).
 
 New Commands (see manual for full explanations):
   - Added documentation for commands in swap/build at_random, first, last. These
@@ -24,15 +26,15 @@ New Commands (see manual for full explanations):
     large trees that require a lot of computation (dynamic likelihood) to be
     parallelized when a small number of trees are being analyzed. For example,
 
-      read(...
-      search()
+      ...
+      build(1)
       transform(likelihood:(gtr,mpl,gap:coupled))
-      select()
-      swap(parallel)
-      report(...
+      swap(parallel,all)
+      ...
 
     This will allow searching on the selected tree in parallel when the number
-    of nodes in the MPI run is > 1.
+    of nodes in the MPI run is > 1. The 'all' option is recommended so that each
+    node is fully utilized.
 
 
 

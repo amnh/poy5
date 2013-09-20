@@ -132,7 +132,7 @@ external set : (s -> int -> int -> unit) = "seq_CAML_set"
 (** [set s1 p v] sets the value v in the position p of s1. If p > (get_capacity
  * s1) raise an Invalid_Argument error. *)
 
-val get : (s -> int -> int) 
+val get : s -> int -> int
 (** [get s1 p] returns the contents of s1 in position p. If p > (get_capacity
  * s1) raise an Invalid_Argument error. *)
 

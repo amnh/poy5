@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3545 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3547 $"
 
 let (-->) a b = b a
 
@@ -1543,7 +1543,7 @@ let load_data (meth : Methods.input) data nodes =
                         (Lazy.force Cost_matrix.Three_D.default_aminoacids)
             in
             let dynastate,default_mode =
-                if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
+                if is_prealigned then `SeqPrealigned,`GeneralNonAdd None
                                  else `CustomAlphabet,`DO
             in
             List.fold_left
@@ -1597,7 +1597,7 @@ let load_data (meth : Methods.input) data nodes =
             if is_prealigned then
                 prealigned_files := files :: !prealigned_files;
             let dynastate,default_mode =
-                if is_prealigned then `SeqPrealigned,`GeneralNonAdd 
+                if is_prealigned then `SeqPrealigned,`GeneralNonAdd None
                                  else `CustomAlphabet,`DO
             in
             let tcmfile = FileStream.filename alph in

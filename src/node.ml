@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3544 $"
+let () = SadmanOutput.register "Node" "$Revision: 3547 $"
 
 let infinity = float_of_int (max_int/2)
 
@@ -2507,7 +2507,9 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
         in
         let nadd8weights = classify do_classify lnadd8code  !data
         and nadd16weights= classify do_classify lnadd16code !data
-        and nadd32weights= classify do_classify lnadd32code !data in
+        and nadd32weights= classify do_classify lnadd32code !data 
+        and nadd33weights= classify do_classify lnadd33code !data in
+          (* above are for general non-additive characters *)
         let laddveccode = group_in_weights None laddveccode
         and laddgencode = group_in_weights None laddgencode
         and lnadd8code  = group_in_weights nadd8weights lnadd8code

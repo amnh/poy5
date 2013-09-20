@@ -55,6 +55,7 @@ type parsed_trees =
     ((string option * Tree.Parse.tree_types list) * string * int)
 
 type dyna_state_t = [
+    (** prealigned sequence data with a weight array for resampling; all ones if None. *)
     | `SeqPrealigned
     (** A short sequence, no rearrangements are allowed*)
     | `Seq
@@ -100,7 +101,7 @@ type clip = Clip | NoClip
 type dyna_initial_assgn =
     [ `Partitioned of clip
     | `AutoPartitioned of clip * int * (int,  ((int * int) list)) Hashtbl.t
-    | `GeneralNonAdd
+    | `GeneralNonAdd of float array option
     | `DO ]
 
 type tcm_definition =
@@ -1269,24 +1270,6 @@ let reverse_dynamic_static_codes map =
 
 
 
-let group_by_weight data codes : int list list =
-  let m =
-    List.fold_left
-        ~f:(fun m code ->
-            let weight = get_weight code data in
-            let v = 
-                if All_sets.FloatMap.mem weight m
-                  then All_sets.FloatMap.find weight m
-                  else []
-            in
-            All_sets.FloatMap.add weight (code::v) m)
-        ~init:All_sets.FloatMap.empty
-        codes
-  in
-  let pairs = All_sets.FloatMap.bindings m in
-  List.map snd pairs
-
-
 (** Convert characters in n33 classification to gen-nonadditve characters.
  * source contains old matrices from the dynamic characters necessary for the
  * general non-additive prealigned character. *)
@@ -1337,9 +1320,11 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
                 | Dynamic spec -> spec (* already set up matrices *)
                 | _            -> assert false
             in
-            let new_spec = { dynamic_spec with
-                                state = `SeqPrealigned;
-                                initial_assignment = `GeneralNonAdd; }
+            let new_spec =
+              let weights = Array.of_list (List.map (fun code -> get_weight code dyndata) codes) in
+              { dynamic_spec with
+                  state = `SeqPrealigned;
+                  initial_assignment = `GeneralNonAdd (Some weights); }
             in
             let alph = get_alphabet dyndata code in
             Hashtbl.iter
@@ -1375,14 +1360,6 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
         character_names = new_names;
         character_specs = new_specs;
         taxon_characters= new_chars; } --> categorize, c
-
-let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
-  List.fold_left
-    ~f:(fun (data,acc) codes ->
-        let data,nacc = convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes in
-        data,(nacc@acc))
-    ~init:(data,[])
-    (group_by_weight data codes)
 
 
 (* [convert_dynamic_to_static_branches src dest] Use the static_dynamic_codes
@@ -2618,9 +2595,10 @@ let process_parsed_sequences prealigned weight tcmfile tcm_full tcm_original tcm
         if annotated || (dyna_state = `Chromosome) then 
             original_filename
         else match default_mode with
-        | `DO | `GeneralNonAdd |`AutoPartitioned _ -> (!locus_name) ()
+        | `DO | `GeneralNonAdd _ |`AutoPartitioned _ -> (!locus_name) ()
         | `Partitioned _ -> original_filename
     in
+    let is_gennonadditive = function `GeneralNonAdd _ -> true | _ -> false in
     let data =
         if annotated then
             process_annotated_chrom data res original_filename file tcmfile
@@ -2634,7 +2612,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm_full tcm_original tcm
             process_parsed_breakinv data res original_filename file tcmfile
                 tcm_full tcm_original tcm3 default_mode lk_model alphabet
                 dyna_state dyna_pam weight
-        else if `DO = default_mode || `GeneralNonAdd = default_mode then
+        else if `DO = default_mode || is_gennonadditive default_mode then
             process_parsed_normal_sequence data res original_filename tcmfile
                 tcm_full tcm_original tcm3 default_mode lk_model alphabet
                 dyna_state dyna_pam weight prealigned false
@@ -3524,7 +3502,7 @@ let character_spec_to_formatter enc : Xml.xml =
             | `Partitioned _ -> 
                 `String "User provided partition with DO"
             | `DO -> `String "Direct Optimization"
-            | `GeneralNonAdd ->
+            | `GeneralNonAdd _ ->
                 `String "Prealigned sequence."
         in
         (RXML -[T.molecular]
@@ -6234,7 +6212,7 @@ let make_direct_optimization chars data =
                 | `Partitioned _ ->
                     Hashtbl.replace data.character_specs code 
                         (Dynamic { dhs with initial_assignment = `DO })
-                | `DO | `GeneralNonAdd -> ()
+                | `DO | `GeneralNonAdd _ -> ()
             end
         | _ -> ()
     in
@@ -6685,6 +6663,7 @@ let compare_pairs ch1 ch2 complement data =
         ~init:[] codes2
 
 module Sample = struct
+
     let characters_to_arr chars =
         Array.of_list (Hashtbl.fold (fun code spec acc ->
             (0, code, spec) :: acc) chars [])
