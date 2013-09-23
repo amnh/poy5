@@ -600,7 +600,8 @@ module Accessor = struct
         Hashtbl.iter process_taxon data.taxon_characters;
         seqs
 
-    let get_weight c data = match Hashtbl.find data.character_specs c with
+    let get_weight c data =
+      match Hashtbl.find data.character_specs c with
         | Dynamic spec -> spec.weight
         | Static (NexusFile spec) -> spec.Nexus.File.st_weight
         | Static (FixedStates spec) -> spec.original_dynspec.weight
@@ -1321,8 +1322,10 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
                 | _            -> assert false
             in
             let new_spec =
-              let weights = Array.of_list (List.map (fun code -> get_weight code dyndata) codes) in
-              { dynamic_spec with
+              let weights =
+                Array.of_list (List.map (fun c -> get_weight c data) codes)
+              in
+              {dynamic_spec with
                   state = `SeqPrealigned;
                   initial_assignment = `GeneralNonAdd (Some weights); }
             in
@@ -1345,6 +1348,12 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
             Hashtbl.replace code_tbl code name;
             code
     in
+    Printf.printf "Dyn Codes : ";
+    Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) dyndata.character_specs;
+    print_newline ();
+    Printf.printf "Oth Codes : ";
+    Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) data.character_specs;
+    print_newline ();
     let new_specs = Hashtbl.copy data.character_specs 
     and new_chars = copy_taxon_characters data.taxon_characters
     and new_names = Hashtbl.copy data.character_names
@@ -1355,7 +1364,7 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
             ~init:[]
             codes
     in
-    { data with
+    {data with
         character_codes = new_codes;
         character_names = new_names;
         character_specs = new_specs;
