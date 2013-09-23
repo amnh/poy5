@@ -1348,12 +1348,6 @@ let convert_n33_to_gennonadditive ~src:dyndata ~dest:data codes =
             Hashtbl.replace code_tbl code name;
             code
     in
-    Printf.printf "Dyn Codes : ";
-    Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) dyndata.character_specs;
-    print_newline ();
-    Printf.printf "Oth Codes : ";
-    Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) data.character_specs;
-    print_newline ();
     let new_specs = Hashtbl.copy data.character_specs 
     and new_chars = copy_taxon_characters data.taxon_characters
     and new_names = Hashtbl.copy data.character_names
