@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3547 $"
+let () = SadmanOutput.register "Node" "$Revision: 3552 $"
 
 let infinity = float_of_int (max_int/2)
 
@@ -1961,7 +1961,7 @@ let rec cs_distance missing_distance nd1 nd2 ch1 ch2 = match ch1, ch2 with
 
 
 let distance ?(para=None) ?(parb=None) missing_distance
-    ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
+      ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
     let rec distance_lists chs1 chs2 acc = match chs1, chs2 with
         | ch1 :: chs1, ch2 :: chs2 ->
             distance_lists chs1 chs2
@@ -2507,8 +2507,7 @@ let generate_taxon do_classify laddgencode laddveccode lnadd8code lnadd16code
         in
         let nadd8weights = classify do_classify lnadd8code  !data
         and nadd16weights= classify do_classify lnadd16code !data
-        and nadd32weights= classify do_classify lnadd32code !data 
-        and nadd33weights= classify do_classify lnadd33code !data in
+        and nadd32weights= classify do_classify lnadd32code !data in
           (* above are for general non-additive characters *)
         let laddveccode = group_in_weights None laddveccode
         and laddgencode = group_in_weights None laddgencode
@@ -4307,14 +4306,11 @@ END
         let rec distance acc a b = 
             match a, b with
             | (Nonadd8U a) :: at, (Nonadd8U b) :: bt ->
-                    distance (acc +. (a.u_weight *. (NonaddCS8.distance_union
-                    a.ch b.ch))) at bt
+                    distance (acc +. (a.u_weight *. (NonaddCS8.distance_union a.ch b.ch))) at bt
             | (Nonadd16U a) :: at, (Nonadd16U b) :: bt ->
-                    distance (acc +. (a.u_weight *. (NonaddCS16.distance_union
-                    a.ch b.ch))) at bt
+                    distance (acc +. (a.u_weight *. (NonaddCS16.distance_union a.ch b.ch))) at bt
             | (Nonadd32U a) :: at, (Nonadd32U b) :: bt ->
-                    distance (acc +. (a.u_weight *. (NonaddCS32.distance_union
-                    a.ch b.ch))) at bt
+                    distance (acc +. (a.u_weight *. (NonaddCS32.distance_union a.ch b.ch))) at bt
             | (StaticMlU a) :: at, (StaticMlU b) :: bt ->
                     distance acc at bt
                     (* TODO MlStaticCS.distance_union a b, at, bt *)
@@ -4330,11 +4326,9 @@ END
                     distance acc at bt
                     (* TODO SankCS.distance a b, at, ct *)
             | (KolmoU a) :: at, (KolmoU b) :: bt ->
-                    distance (acc +. (a.u_weight *. (KolmoCS.distance_union a.ch
-                    b.ch))) at bt
+                    distance (acc +. (a.u_weight *. (KolmoCS.distance_union a.ch b.ch))) at bt
             | (DynamicU a) :: at, (DynamicU b) :: bt ->
-                    distance (acc +. (a.u_weight *. (DynamicCS.distance_union
-                    a.ch b.ch))) at bt
+                    distance (acc +. (a.u_weight *. (DynamicCS.distance_union a.ch b.ch))) at bt
             | [], [] -> acc
             | (Nonadd8U _) :: _, _
             | (Nonadd16U _) :: _, _
@@ -4652,78 +4646,60 @@ module Standard :
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x
                 | (Nonadd8 ha) :: ta, _ -> -1
                 | (Nonadd16 ha) :: ta, (Nonadd16 hb) :: tb ->
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x
                 | (Nonadd16 ha) :: ta, _ -> -1
                 | (Nonadd32 ha) :: ta, (Nonadd32 hb) :: tb ->
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x
                 | (Nonadd32 ha) :: ta, _ -> -1
                 | (AddGen ha) :: ta, (AddGen hb) :: tb ->
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x
                 | (AddGen ha) :: ta, _ -> -1
                 | (AddVec ha) :: ta, (AddVec hb) :: tb ->
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x
                 | (AddVec ha) :: ta, _ -> -1
                 | (Sank ha) :: ta, (Sank hb) :: tb ->
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = SankCS.compare_data ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x
                 | (Sank ha) :: ta, _ -> -1
                 | (FixedStates ha) :: ta, (FixedStates hb) :: tb ->
                     let cmp = Fixed_states.compare_data ha.preliminary hb.preliminary in
-                    if cmp = 0 then
-                        aux_cmt ta tb
-                    else cmp
+                    if cmp = 0 then aux_cmt ta tb else cmp
                 | (FixedStates ha) :: ta, _ -> -1
                 | (Dynamic ha) :: ta, (Dynamic hb) :: tb ->
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x
                 | (Dynamic ha) :: ta, _ -> -1
                 | (Kolmo ha) :: ta, (Kolmo hb) :: tb ->
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x
                 | (Kolmo ha) :: ta, _ -> -1
                 | (StaticMl ha) :: ta, (StaticMl hb) :: tb ->
@@ -4732,9 +4708,7 @@ module Standard :
                         if x = 0 then
                             (* specialized compare --only compares general model *)
                             let cmp = MlStaticCS.compare ha.preliminary hb.preliminary in
-                            if cmp = 0 then
-                                aux_cmt ta tb
-                            else cmp
+                            if cmp = 0 then aux_cmt ta tb else cmp
                         else x
                     ELSE 
                         0
@@ -4744,9 +4718,7 @@ module Standard :
                     let x = compare ha.weight hb.weight in
                     if x = 0 then
                         let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then
-                            aux_cmt ta tb
-                        else cmp
+                        if cmp = 0 then aux_cmt ta tb else cmp
                     else x 
                 | (Set ha) :: ta, _ -> 1
                 | [], [] -> 0
@@ -4758,7 +4730,6 @@ module Standard :
 end 
 
 let merge a b =
-  Printf.printf "CALL TO MERGE\n%!";
     { a with
         characters = a.characters @ b.characters;
         total_cost = add_total_costs a.total_cost b.total_cost;
@@ -4771,26 +4742,11 @@ let total_cost_of_type t n =
     let debug = false in
     let rec total_cost_cs acc item =
         let single = match item, t with
-            | Nonadd8 x, `Nonadd -> 
-                    if debug then Printf.printf
-                    "total_cost_of_type,Nonadd8,%f \n%!" x.sum_cost; 
-            x.sum_cost 
-            | Nonadd16 x, `Nonadd -> 
-                    if debug then Printf.printf
-                    "total_cost_of_type,Nonadd16,%f\n%!" x.sum_cost;
-                    x.sum_cost
-            | Nonadd32 x, `Nonadd -> 
-                    if debug then Printf.printf
-                    "total_cost_of_type,Nonadd32,%f \n%!" x.sum_cost;
-                    x.sum_cost
-            | AddGen x, `Add -> 
-                    if debug then Printf.printf
-                    "total_cost_of_type,AddGen,%f \n%!" x.sum_cost;
-                    x.sum_cost 
-            | AddVec x, `Add -> 
-                    if debug then Printf.printf
-                    "total_cost_of_type,AddVec,%f\n%!" x.sum_cost;
-                    x.sum_cost 
+            | Nonadd8 x, `Nonadd -> x.sum_cost 
+            | Nonadd16 x, `Nonadd -> x.sum_cost
+            | Nonadd32 x, `Nonadd -> x.sum_cost
+            | AddGen x, `Add -> x.sum_cost 
+            | AddVec x, `Add -> x.sum_cost 
             | Sank x, `Sank ->
                     let ec = SankCS.get_extra_cost_for_root x.preliminary in
                     (x.sum_cost -. (float_of_int ec) *. x.weight) 
@@ -4801,25 +4757,17 @@ let total_cost_of_type t n =
                     0.0
                 END
             | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
-            | FixedStates x, `FixedStates ->
-                    x.sum_cost
+            | FixedStates x, `FixedStates -> x.sum_cost
             | Dynamic x, t ->
-                    begin match x.preliminary, t with
-                    | DynamicCS.MlCS _, `Ml when n.cost_mode = `Likelihood ->
-                        x.cost 
-                    | DynamicCS.MlCS _, `Ml when n.cost_mode = `SumLikelihood ->
-                        x.sum_cost 
+                begin match x.preliminary, t with
+                    | DynamicCS.MlCS _, `Ml when n.cost_mode = `Likelihood -> x.cost 
+                    | DynamicCS.MlCS _, `Ml when n.cost_mode = `SumLikelihood -> x.sum_cost 
                     | DynamicCS.MlCS _, `Ml -> assert false
-                    | DynamicCS.SeqCS _, `Seq ->
-                        x.sum_cost 
-                    | DynamicCS.BreakinvCS _, `Breakinv ->
-                        x.sum_cost 
-                    | DynamicCS.ChromCS _, `Chrom ->
-                        x.sum_cost
-                    | DynamicCS.AnnchromCS _, `Annchrom ->
-                        x.sum_cost 
-                    | DynamicCS.GenomeCS _, `Genome ->
-                        x.sum_cost 
+                    | DynamicCS.SeqCS _, `Seq -> x.sum_cost 
+                    | DynamicCS.BreakinvCS _, `Breakinv -> x.sum_cost 
+                    | DynamicCS.ChromCS _, `Chrom -> x.sum_cost
+                    | DynamicCS.AnnchromCS _, `Annchrom -> x.sum_cost 
+                    | DynamicCS.GenomeCS _, `Genome -> x.sum_cost 
                     | _ -> 0.0
                 end
             | Kolmo x, `Kolmo -> x.sum_cost 

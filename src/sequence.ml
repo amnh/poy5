@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sequence" "$Revision: 3536 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 3550 $"
 
 exception Invalid_Argument of string
 
@@ -379,8 +379,8 @@ let concat x =
 	let pos = ref 0 in    
     let copier x = 
         let len = length x in
-       for i = 0 to len - 1 do
-			copy_from_in x ns i !pos;
+        for i = 0 to len - 1 do
+			      copy_from_in x ns i !pos;
             Pervasives.incr pos;            
         done;
     in

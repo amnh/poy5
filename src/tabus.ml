@@ -21,7 +21,7 @@
  * implemented. The tabu manager specifies the order in which edges are broken by
  * the SPR and TBR search procedures. The list of edges in the tabu should always
  * match the edges in the tree. *)
-let () = SadmanOutput.register "Tabus" "$Revision: 3538 $"
+let () = SadmanOutput.register "Tabus" "$Revision: 3553 $"
 
 (* A module that provides the managers for a local search (rerooting, edge
 * breaking and joining. A tabu manager controls what edges are next ina series
@@ -1672,8 +1672,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     let next = Tree.normalize_edge next current_tree in
                     Some next
                 with
-                | Tree.Invalid_Edge ->
-                    None
+                | Tree.Invalid_Edge -> None
+                | Not_found         -> None
 
             method update_break breakage = 
                 break_delta <- Some breakage.Ptree.tree_delta

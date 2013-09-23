@@ -2468,12 +2468,15 @@ let process_parsed_normal_sequence data res original_filename tcmfile tcm_full
     (*work on the taxon seq list belong to a fragment *)
     let fold_over_a_taxon_lst olddata lst  =
         (*create new character for each fragment*)
-        let len =
+        let len = 
           List.fold_left
             ~f:(fun acc (x,_) ->
-                  Array.fold_left
+                  let sum =
+                    Array.fold_left
                       ~f:(fun acc x -> acc+(Sequence.length x))
-                      ~init:acc x)
+                      ~init:0 x
+                  in
+                  max sum acc)
             ~init:0
             lst
         in
@@ -6723,14 +6726,16 @@ module Sample = struct
             | `Bootstrap   -> bootstrap_spec arr (Array.length arr)
             | `Jackknife m -> jackknife_spec arr m 
         in
-        Array.iter (fun (cnt, code, num, spec) -> match spec with
-            | Dynamic x when x.state = `SeqPrealigned ->
-                begin match x.initial_assignment with
-                  | `GeneralNonAdd (Some x) -> x.(num) <- float_of_int cnt;
-                  | _ -> assert false
-                end
-            | _ ->
-                Hashtbl.replace data.character_specs
+        Array.iter
+          (fun (cnt, code, num, spec) ->
+              match spec with
+              | Dynamic x when x.state = `SeqPrealigned ->
+                  begin match x.initial_assignment with
+                    | `GeneralNonAdd (Some x) -> x.(num) <- float_of_int cnt;
+                    | _ -> assert false
+                  end
+              | _ ->
+                  Hashtbl.replace data.character_specs
                         code (set_weight_factor (float_of_int cnt) spec))
             arr;
         data
