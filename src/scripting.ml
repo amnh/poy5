@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3547 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3555 $"
 
 let (-->) a b = b a
 
@@ -338,6 +338,7 @@ module type S = sig
         val join : Tree.join_jxn -> Tree.join_jxn -> phylogeny -> phylogeny * Tree.join_delta
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
+        val cost : Tree.join_jxn -> Tree.join_jxn -> a -> phylogeny -> Ptree.clade_cost
         val downpass : phylogeny -> phylogeny
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
@@ -4721,6 +4722,9 @@ let set_console_run r = console_run_val := r
             let a, b = TreeOps.reroot_fn None true edge tree in
             let a = TreeOps.incremental_uppass a b in
             a
+        let cost x1 x2 n ptree =
+            TreeOps.cost_fn None x1 x2 0.0 n ptree
+
         let downpass = TreeOps.downpass
         let uppass = TreeOps.uppass
         let branch_table = TreeOps.branch_table

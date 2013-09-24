@@ -303,6 +303,7 @@ val set_console_run : r -> unit
                 phylogeny * Tree.join_delta
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
+        val cost : Tree.join_jxn -> Tree.join_jxn -> a -> phylogeny -> Ptree.clade_cost
 
         (* Recomputing the contents of a tree *)
         val downpass : phylogeny -> phylogeny
