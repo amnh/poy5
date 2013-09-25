@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3459 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3556 $"
 
 open Numerical.FPInfix
 
@@ -1286,7 +1286,13 @@ let create ?(min_prior=Numerical.minimum) lk_spec =
         ba_of_array1 p
     in
     let _gapr = match lk_spec.use_gap with
-        | `Coupled x   -> Some (Alphabet.get_gap alph, x)
+        | `Coupled x   ->
+            let gap_i =
+              if Alphabet.zero_indexed alph
+                then Alphabet.get_gap alph
+                else (Alphabet.get_gap alph)-1
+            in
+            Some (gap_i, x)
         | `Independent -> None
         | `Missing     -> None
     in

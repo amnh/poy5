@@ -704,7 +704,7 @@ falign_CAML_nukk_2(value oSpace, value oMat, value oU, value oD, value oUi,
     CAMLxparam5( ota, otb, oa, ob, ogap );
 
     double ta, tb, *PA, *PB, *TMP, min_cost;
-    int alph, mat_size, fcm_size, gap;
+    int alph, mat_size, fcm_size, gap,fcm_mat;
     seqt a, b;
     fcmt results;
     mat *space;
@@ -718,8 +718,12 @@ falign_CAML_nukk_2(value oSpace, value oMat, value oU, value oD, value oUi,
     space = FM_val( oSpace );
     alph = Bigarray_val(oU)->dim[0];
     mat_size = a->len * b->len;
-    fcm_size = ((1 << alph) - 1);
+    fcm_size = ((1 << alph)-1);
+    fcm_mat = fcm_size * fcm_size;
 
+    if( fcm_mat < 0){
+      failwith("Dynamic Likelihood cannot support alphabets of this size currently.");
+    }
     /** register scratch space; free first to 'erase' information. **/
     expand_matrix( space, (3 * alph * alph) + mat_size + fcm_size *fcm_size );
     results.direc = Matrices_struct( oMat );
