@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sequence" "$Revision: 3550 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 3557 $"
 
 exception Invalid_Argument of string
 
@@ -373,9 +373,8 @@ let copy_from_in x y z u =
 
 
 let concat x = 
-    let len = List.fold_left (fun x y -> x + length y) 0 x in
-    let ns = init (fun _x -> 0) len in 
-            
+  let len = List.fold_left (fun x y -> x + length y) 0 x in
+  let ns = init (fun _x -> 0) len in 
 	let pos = ref 0 in    
     let copier x = 
         let len = length x in
