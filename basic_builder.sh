@@ -2,12 +2,11 @@
 
 style=$1
 shift
-echo "WROTE $style"
 
 cd src/
-./configure --enable-interface=ncurses $*
+./configure $*
 
-if [$style = "uninstall"];
+if [ $style = "uninstall" ];
 then
     make uninstall
 else

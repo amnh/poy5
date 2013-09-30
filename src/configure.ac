@@ -155,7 +155,11 @@ AC_ARG_ENABLE([large-messages], [AS_HELP_STRING([--enable-large-messages],
 
 AC_ARG_ENABLE([parmap], [AS_HELP_STRING([--enable-parmap], 
               [Enables parmap through ocamlfind tree level parallelism in building and swappingr.])], 
-              [USE_PARMAP="true";DUSE_PARMAP="-DUSE_PARMAP"], 
+              [if test x"$enableval" = x"no"; then
+                    USE_PARMAP="false"
+                else
+                    USE_PARMAP="true";DUSE_PARMAP="-DUSE_PARMAP"
+                fi],
               [USE_PARMAP="false"])
 
 AC_ARG_ENABLE([shared-hd], [AS_HELP_STRING([--enable-shared-hd],

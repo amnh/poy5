@@ -3094,7 +3094,11 @@ fi
 
 # Check whether --enable-parmap was given.
 if test "${enable_parmap+set}" = set; then :
-  enableval=$enable_parmap; USE_PARMAP="true";DUSE_PARMAP="-DUSE_PARMAP"
+  enableval=$enable_parmap; if test x"$enableval" = x"no"; then
+                    USE_PARMAP="false"
+                else
+                    USE_PARMAP="true";DUSE_PARMAP="-DUSE_PARMAP"
+                fi
 else
   USE_PARMAP="false"
 fi

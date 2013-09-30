@@ -5,6 +5,7 @@ New Features:
   - Script Analyzer has some resolutions for parallel analysis that should
     result in better performance of parallel execution.
   - swap(parallel) command, see below.
+  - OPAM distribution via our github repo and basic_builder.sh
 
 Bugs Fixed:
   - Reading morphology under Nexus had errors in processing SYMBOLS.
@@ -16,6 +17,7 @@ Bugs Fixed:
     than expected during the bremer search.
   - Correctly implemented the prealigned amino-acid characters to accept
     resampling support techniques (jackkknife and bootstrap).
+  - Minor issues with basic_builder.sh with install and ./configure with parmap
 
 New Commands (see manual for full explanations):
   - Added documentation for commands in swap/build at_random, first, last. These
