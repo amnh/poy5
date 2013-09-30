@@ -45,7 +45,7 @@ type ('a, 'b) run = {
     jackknife_store : support_class str_htbl;
     tree_store : ('a, 'b) Ptree.p_tree Sexpr.t str_htbl;
     queue : Sampler.ft_queue;
-    stored_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
+    stored_trees : Tree.u_tree Sexpr.t;
     original_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     search_results : search_results;
 }
@@ -256,8 +256,6 @@ val args : string array
 val run : 
     ?folder:(r -> script -> r) ->
     ?output_file:string -> ?start:r -> script list -> r
-
-val update_mergingscript : (r -> script -> r) -> script list -> r -> r -> r
 
 val process_input : r -> 
     Methods.input -> r

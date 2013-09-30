@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3555 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3558 $"
 
 let (-->) a b = b a
 
@@ -74,7 +74,7 @@ type ('a, 'b) run = {
     jackknife_store : support_class str_htbl;
     tree_store : ('a, 'b) Ptree.p_tree Sexpr.t str_htbl;
     queue : Sampler.ft_queue;
-    stored_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
+    stored_trees : Tree.u_tree Sexpr.t;
     original_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     search_results : search_results;
 }
@@ -296,8 +296,6 @@ module type S = sig
     val run : 
         ?folder:(r -> script -> r) ->
         ?output_file:string -> ?start:r -> script list -> r
-
-    val update_mergingscript : (r -> script -> r) -> script list -> r -> r -> r
 
     val process_input : r -> 
         Methods.input -> r
@@ -1352,13 +1350,12 @@ let rediagnose_trees ?(classify=true) load_data run =
         res
     in
     (* start it up... *)
-    let len = (Sexpr.length run.trees) + (Sexpr.length run.stored_trees) in
+    let len = Sexpr.length run.trees in
     if len > 0 then
         let st = Status.create "Diagnosis"  (Some len) "Recalculating trees" in
         let trees = Sexpr.map (doit st) run.trees in
-        let stored = Sexpr.map (doit st) run.stored_trees in
         Status.finished st;
-        { run with trees = trees; stored_trees = stored }
+        { run with trees = trees; }
     else
         run
 
@@ -1369,7 +1366,7 @@ let update_trees_to_data ?(classify=true) force load_data run =
         else run.data, run.nodes 
     in
     let run = { run with nodes = nodes; data = data } in
-    let len = (Sexpr.length run.trees) + (Sexpr.length run.stored_trees) in
+    let len = (Sexpr.length run.trees) in
     if len > 0 then begin
         let st = Status.create "Diagnosis"  (Some len) "Recalculating trees" in
         let nodes =
@@ -1410,9 +1407,8 @@ let update_trees_to_data ?(classify=true) force load_data run =
                 tree
         in
         let trees = Sexpr.map (doit replacer) run.trees in
-        let stored = Sexpr.map (doit replacer) run.stored_trees in
         Status.finished st;
-        { run with trees = trees; stored_trees = stored }
+        { run with trees = trees; }
     end else begin
         run
     end
@@ -2289,188 +2285,118 @@ let rec handle_support_output run meth = match meth with
                 handle_support_output run (`GraphicSupports (c, filename));
         end
 
-let update_mergingscript folder mergingscript run tmp =
-    let tmp = { run with trees = Sexpr.union tmp.trees
-    run.stored_trees } in
-    let tmp = List.fold_left folder tmp mergingscript in
-    let tmp = { tmp with trees = `Empty; stored_trees = tmp.trees } in
-    tmp
-
 let on_each_tree folder set_data dosomething mergingscript run tree =
-    let tmp = { run with trees = `Empty } in
+    let init = Sexpr.length run.trees in
+    let tmp = {run with trees = `Empty } in
     let tmp = folder tmp set_data in
-    let tmp = { tmp with trees = `Single tree } in
+    let tmp = {tmp with trees = `Single tree } in
     let tmp = List.fold_left folder tmp dosomething in
-    update_mergingscript folder mergingscript run tmp
+    let tmp = {run with trees = Sexpr.union tmp.trees run.trees;} in
+    assert( (Sexpr.length run.trees) = init+1 );
+    let tmp = List.fold_left folder tmp mergingscript in
+    tmp
 
 let emit_identifier =
     let identifier = ref (-1) in
-    fun () -> 
-        incr identifier; 
-        "__poy_id_" ^ string_of_int !identifier
+    (fun () -> incr identifier; "__poy_id_" ^ string_of_int !identifier)
 
+let encode_trees print_msg run =
+    print_msg "Will encode the trees";
+(*     let () = ignore (TS.get_unique (Sexpr.to_list run.trees)) in *)
+(*     let () = ignore (TS.get_unique (Sexpr.to_list run.stored_trees)) in *)
+    print_msg "The test passed";
+    run.stored_trees
 
-    let extract_tree tree = tree.Ptree.tree
+let toptree data tree = 
+    { (Ptree.empty data) with Ptree.tree = tree; }
 
-    let encode_trees print_msg run =
-        print_msg "Will encode the trees, first test";
-        let () =
-            let _ = try TS.get_unique (Sexpr.to_list run.trees) with
-                | err -> 
-                        Status.user_message Status.Error "12";
-                        raise err
-            in
-            ()
+let update_codes run tc tree = 
+    let code_ref = ref run.data.Data.number_of_taxa in
+    let my_hsh = Hashtbl.create 91 in
+    let update_item a = 
+        if All_sets.IntegerMap.mem a tc then
+            Data.taxon_code (All_sets.IntegerMap.find a tc) run.data
+        else if Hashtbl.mem my_hsh a then
+            Hashtbl.find my_hsh a
+        else 
+            let () = incr code_ref in
+            let newa = !code_ref in
+            let () = Hashtbl.add my_hsh a newa in
+            newa
+    in
+    let update_node code node acc = 
+        let node = match node with
+            | Tree.Interior (a, b, c, d) ->
+                let a = update_item a
+                and b = update_item b
+                and c = update_item c
+                and d = update_item d in
+                Tree.Interior (a, b, c, d)
+            | Tree.Leaf (a, b) ->
+                let a = update_item a
+                and b = update_item b in
+                Tree.Leaf (a, b)
+            | Tree.Single a ->
+                let a = update_item a in
+                Tree.Single a
         in
-        let () =
-            let _ = try TS.get_unique (Sexpr.to_list run.stored_trees) with
-                | err -> 
-                        Status.user_message Status.Error "11";
-                        raise err
-            in
-            ()
-        in
-        print_msg "The test passed";
-        (Sexpr.map extract_tree run.trees), (Sexpr.map extract_tree run.stored_trees)
-
-    let toptree data tree = 
-        { (Ptree.empty data) with Ptree.tree = tree}
-
-    let update_codes run tc tree = 
-        let code_ref = ref run.data.Data.number_of_taxa in
-        let my_hsh = Hashtbl.create 91 in
-        let update_item a = 
-            if All_sets.IntegerMap.mem a tc then
-                Data.taxon_code (All_sets.IntegerMap.find a tc) run.data
-            else if Hashtbl.mem my_hsh a then
-                Hashtbl.find my_hsh a
-            else 
-                let _ = incr code_ref in
-                let newa = !code_ref in
-                let _ = Hashtbl.add my_hsh a newa in
-                newa
-        in
-        let update_node code node acc = 
-            let node = 
-                match node with
-                | Tree.Interior (a, b, c, d) ->
-                        let a = update_item a
-                        and b = update_item b
-                        and c = update_item c
-                        and d = update_item d in
-                        Tree.Interior (a, b, c, d)
-                | Tree.Leaf (a, b) ->
-                        let a = update_item a
-                        and b = update_item b in
-                        Tree.Leaf (a, b)
-                | Tree.Single a ->
-                        let a = update_item a in
-                        Tree.Single a
-            in
-            All_sets.IntegerMap.add (update_item code) node acc
-        in
-        let update_edge (Tree.Edge (a, b)) acc =
-            Tree.EdgeSet.add (Tree.Edge (update_item a, update_item b)) acc
-        in
-        let u_topo = All_sets.IntegerMap.fold update_node tree.Tree.u_topo
-        All_sets.IntegerMap.empty
-        and d_edges = 
-            Tree.EdgeSet.fold update_edge tree.Tree.d_edges
-            Tree.EdgeSet.empty
-        and handles = 
-            All_sets.Integers.fold 
+        All_sets.IntegerMap.add (update_item code) node acc
+    in
+    let update_edge (Tree.Edge (a, b)) acc =
+        Tree.EdgeSet.add (Tree.Edge (update_item a, update_item b)) acc
+    in
+    let u_topo =
+        All_sets.IntegerMap.fold update_node tree.Tree.u_topo All_sets.IntegerMap.empty
+    and d_edges = 
+        Tree.EdgeSet.fold update_edge tree.Tree.d_edges Tree.EdgeSet.empty
+    and handles = 
+        All_sets.Integers.fold 
             (fun x acc -> All_sets.Integers.add (update_item x) acc) 
             tree.Tree.handles All_sets.Integers.empty
+    in
+    { 
+        Tree.tree_name = tree.Tree.tree_name;
+            u_topo = u_topo; 
+            d_edges = d_edges;
+            handles = handles;
+            avail_ids = [];
+            new_ids = run.data.Data.number_of_taxa + 1; 
+    }
+
+let decode_trees print_msg stored_trees run =
+    print_msg "Did the tree decoding";
+    { run with
+        stored_trees = Sexpr.union stored_trees run.stored_trees; }
+
+let encode_jackknife run = 
+    (run.jackknife_support), (run.data.Data.taxon_codes)
+
+let to_my_code tc run code =
+    Data.taxon_code (All_sets.IntegerMap.find code tc) run.data
+
+let decode_jackknife set run = 
+    let set, tc = set in
+    match set with
+    | Some (int, set) ->
+        let to_my_code code acc = 
+            All_sets.Integers.add (to_my_code tc run code) acc
         in
-        { 
-           Tree.tree_name = tree.Tree.tree_name;
-                u_topo = u_topo; 
-                d_edges = d_edges;
-                handles = handles;
-                avail_ids = [];
-                new_ids = run.data.Data.number_of_taxa + 1; 
-        }
-
-    let decode_trees print_msg (trees, stored_trees) run =
-        try
-            print_msg "Will attempt to decode trees";
-            let my_trees = run.trees 
-            and my_stored = run.stored_trees in
-            let nrun = 
-                let nt = Sexpr.map (toptree run.data) trees 
-                and nst = Sexpr.map (toptree run.data) stored_trees in
-                update_trees_to_data true false {run with trees = nt; stored_trees = nst }
+        Some (int,
+        Tree.CladeFPMap.fold (fun clades count acc ->
+            let clades = 
+                All_sets.Integers.fold to_my_code clades All_sets.Integers.empty
             in
-            let () =
-                let _ = try TS.get_unique (Sexpr.to_list my_trees) with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "9";
-                            raise err
-                in
-                ()
-            in
-            let () =
-                let _ = try TS.get_unique (Sexpr.to_list my_stored) with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "10";
-                            raise err
-                in
-                ()
-            in
-            let () =
-                let _ = try TS.get_unique (Sexpr.to_list nrun.stored_trees) with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "8";
-                            raise err
-                in
-                ()
-            in
-            let () =
-                let _ = try TS.get_unique (Sexpr.to_list nrun.trees) with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "7";
-                            raise err
-                in
-                ()
-            in
-            print_msg "Did the tree decoding";
-            { run with
-                trees = Sexpr.union my_trees nrun.trees;
-                stored_trees = Sexpr.union my_stored nrun.stored_trees }
-        with
-        | Not_found as err -> 
-                print_msg "This occurs during the decoding";
-                raise err
+            Tree.CladeFPMap.add clades count acc) set Tree.CladeFPMap.empty)
+    | None -> None
 
-    let encode_jackknife run = 
-        (run.jackknife_support), (run.data.Data.taxon_codes)
+let encode_bootstrap run = run.bootstrap_support, run.data.Data.taxon_codes
 
-    let to_my_code tc run code =
-        Data.taxon_code (All_sets.IntegerMap.find code tc) run.data
+let decode_bootstrap set run = 
+    decode_jackknife set run
 
-    let decode_jackknife set run = 
-        let set, tc = set in
-        match set with
-        | Some (int, set) ->
-            let to_my_code code acc = 
-                All_sets.Integers.add (to_my_code tc run code) acc
-            in
-            Some (int,
-            Tree.CladeFPMap.fold (fun clades count acc ->
-                let clades = 
-                    All_sets.Integers.fold to_my_code clades All_sets.Integers.empty
-                in
-                Tree.CladeFPMap.add clades count acc) set Tree.CladeFPMap.empty)
-        | None -> None
+let encode_bremer run = run.bremer_support, run.data.Data.taxon_codes
 
-    let encode_bootstrap run = run.bootstrap_support, run.data.Data.taxon_codes
-
-    let decode_bootstrap set run = 
-        decode_jackknife set run
-
-    let encode_bremer run = run.bremer_support, run.data.Data.taxon_codes
-
-    let decode_bremer set run = set
+let decode_bremer set run = set
 
 
 IFDEF USEPARALLEL THEN
@@ -2560,7 +2486,7 @@ IFDEF USEPARALLEL THEN
             let my_rank = Mpi.comm_rank Mpi.comm_world in
             print_endline (string_of_int my_rank ^ ":" ^ msg);
             flush stdout
-        end else ()
+        end
 END
 
 let automated_search folder max_time min_time max_memory min_hits target_cost visited user_constraint run =
@@ -3486,10 +3412,7 @@ let rec folder (run : r) meth =
                 let got_size = ref false in
                 let trees = ref [||] in
                 let stored_trees = ref [||] in
-                let get_arr a = 
-                    if a = 0 then trees
-                    else stored_trees 
-                in
+                let get_arr a = if a = 0 then trees else stored_trees in
                 let msg_cntr = ref 0 in
                 let expected_messages = ref max_int in
                 let process_msg msg = 
@@ -3523,8 +3446,7 @@ let rec folder (run : r) meth =
                 in
                 while !expected_messages > !msg_cntr do
                     print_msg "I expect a new message";
-                    process_msg (Mpi.receive other_rank Methods.do_job
-                    Mpi.comm_world)
+                    process_msg (Mpi.receive other_rank Methods.do_job Mpi.comm_world)
                 done;
                 print_msg "I received all the messages";
                 while not (Queue.is_empty tbl) do
@@ -3536,7 +3458,9 @@ let rec folder (run : r) meth =
                     Sexpr.union run.stored_trees stored_trees }
         ELSE
                 print_msg "I will use cheap messages";
-                let dec = Mpi.receive other_rank Methods.do_job Mpi.comm_world in
+                let dec =
+                  Mpi.receive other_rank Methods.do_job Mpi.comm_world
+                in
                 print_msg ("Received from " ^ string_of_int other_rank);
                 decode_trees print_msg dec run
         END
@@ -3681,23 +3605,31 @@ let rec folder (run : r) meth =
     | `Skip
     | `Entry -> run
     | `Plugin (name, args) ->
-            if Hashtbl.mem plugins name then
-                let f = Hashtbl.find plugins name in
-                f args run
-            else begin
-                Status.user_message Status.Error 
-                ("There is no command " ^ name);
-                failwith ("Illegal command " ^ name)
-            end
+        if Hashtbl.mem plugins name then
+            let f = Hashtbl.find plugins name in
+            f args run
+        else begin
+            Status.user_message Status.Error 
+            ("There is no command " ^ name);
+            failwith ("Illegal command " ^ name)
+        end
     | `StoreTrees -> 
-            { run with trees = `Empty;
-                       stored_trees = run.trees }
+        { run with trees = `Empty;
+                   stored_trees = Sexpr.map (fun x -> x.Ptree.tree) run.trees;}
     | `UnionStored ->
-            { run with trees = Sexpr.union run.stored_trees run.trees;
-                       stored_trees = `Empty }
+        let stored_trees =
+          Sexpr.map (fun x -> {(Ptree.empty run.data) with Ptree.tree=x})
+                    run.stored_trees
+        in
+        update_trees_to_data true false
+               { run with trees = Sexpr.union stored_trees run.trees;
+                   stored_trees = `Empty }
     | `GetStored ->
-            { run with trees = run.stored_trees;
-                       stored_trees = `Empty }
+        let stored_trees =
+          Sexpr.map (fun x ->{(Ptree.empty run.data) with Ptree.tree=x}) run.stored_trees
+        in
+        update_trees_to_data true false
+          { run with trees=stored_trees; stored_trees=`Empty}
     | `OnEachTree (dosomething, mergingscript) ->
             let name = emit_identifier () in
             let run = folder run (`Store ([`Data], name)) in
@@ -3711,12 +3643,8 @@ let rec folder (run : r) meth =
                 Sexpr.fold_status
                     "Running pipeline on each tree" ~eta
                     (on_each_tree folder (`Set ([`Data], name)) dosomething mergingscript)
-                    run run.trees
-            in
-            let run = 
-                {run with   trees = run.stored_trees;
-                            original_trees = `Empty; 
-                            stored_trees = `Empty; } 
+                    run
+                    run.trees
             in
             let run = folder run (`Discard ([`Data], name)) in
             run
@@ -3857,16 +3785,15 @@ let rec folder (run : r) meth =
                         let add_elements acc x =
                             TreeSet.add (Ptree.Fingerprint.fingerprint x) acc
                         in
-                        let a = 
-                            Sexpr.fold_left add_elements TreeSet.empty run.trees
-                        in
-                        let a = 
-                            Sexpr.fold_left add_elements a run.stored_trees in
+                        let a = Sexpr.fold_left add_elements TreeSet.empty run.trees in
+(*                         let a = Sexpr.fold_left add_elements a run.stored_trees in *)
                         Sexpr.fold_left add_elements a run.original_trees
                     in
-                    List.partition (fun x ->
-                        let x = Ptree.Fingerprint.fingerprint x in
-                        TreeSet.mem x initialtrees) othertrees
+                    List.partition
+                        (fun x ->
+                            let x = Ptree.Fingerprint.fingerprint x in
+                            TreeSet.mem x initialtrees)
+                        othertrees
                 in
                 let othertrees = 
                     let _, acc =
