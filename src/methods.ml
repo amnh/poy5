@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3539 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3560 $"
 
 exception TimedOut
 
@@ -844,6 +844,7 @@ type script = [
     | `Entry (* Beginning of the program for analyzer *)
     | `StoreTrees
     | `UnionStored
+    | `UnionTrees
     | `GetStored
     | `ReadScript of string list
     | `Repeat of (repeat_condition * script list)

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3558 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3560 $"
 
 let (-->) a b = b a
 
@@ -58,6 +58,19 @@ let add_results cost sr =
     in
     let set = All_sets.FloatMap.add cost cnt sr.tree_costs_found in
     { sr with tree_costs_found = set }
+
+let get_sizerank () =
+  IFDEF USEPARALLEL THEN
+    let size = Mpi.comm_size Mpi.comm_world
+    and rank = Mpi.comm_rank Mpi.comm_world in
+    (rank,size)
+  ELSE
+    (1,1)
+  END
+
+
+type model_data =
+  (int list * MlModel.spec) list
 
 type ('a, 'b) run = {
     description : string option;
@@ -2286,13 +2299,11 @@ let rec handle_support_output run meth = match meth with
         end
 
 let on_each_tree folder set_data dosomething mergingscript run tree =
-    let init = Sexpr.length run.trees in
     let tmp = {run with trees = `Empty } in
     let tmp = folder tmp set_data in
     let tmp = {tmp with trees = `Single tree } in
     let tmp = List.fold_left folder tmp dosomething in
     let tmp = {run with trees = Sexpr.union tmp.trees run.trees;} in
-    assert( (Sexpr.length run.trees) = init+1 );
     let tmp = List.fold_left folder tmp mergingscript in
     tmp
 
@@ -2301,11 +2312,7 @@ let emit_identifier =
     (fun () -> incr identifier; "__poy_id_" ^ string_of_int !identifier)
 
 let encode_trees print_msg run =
-    print_msg "Will encode the trees";
-(*     let () = ignore (TS.get_unique (Sexpr.to_list run.trees)) in *)
-(*     let () = ignore (TS.get_unique (Sexpr.to_list run.stored_trees)) in *)
-    print_msg "The test passed";
-    run.stored_trees
+    Sexpr.union (Sexpr.map (fun x -> x.Ptree.tree) run.trees) run.stored_trees
 
 let toptree data tree = 
     { (Ptree.empty data) with Ptree.tree = tree; }
@@ -2364,7 +2371,6 @@ let update_codes run tc tree =
     }
 
 let decode_trees print_msg stored_trees run =
-    print_msg "Did the tree decoding";
     { run with
         stored_trees = Sexpr.union stored_trees run.stored_trees; }
 
@@ -2669,9 +2675,7 @@ END
     let add_constraint acc =
         match user_constraint with
         | None -> acc
-        | Some file -> 
-                Printf.printf "Adding constraint\n%!";
-                (APOY constraint_p:(file:[file])) :: acc
+        | Some file -> (APOY constraint_p:(file:[file])) :: acc
     in
     let get_top_n n =
         let trees = sort_trees !trees in
@@ -3457,11 +3461,9 @@ let rec folder (run : r) meth =
                 { run with trees = Sexpr.union run.trees trees; stored_trees =
                     Sexpr.union run.stored_trees stored_trees }
         ELSE
-                print_msg "I will use cheap messages";
-                let dec =
-                  Mpi.receive other_rank Methods.do_job Mpi.comm_world
-                in
-                print_msg ("Received from " ^ string_of_int other_rank);
+                let dec = Mpi.receive other_rank Methods.do_job Mpi.comm_world in
+                print_msg (Printf.sprintf "%d Received %d trees from %d"
+                          (fst (get_sizerank ())) (Sexpr.length dec) other_rank);
                 decode_trees print_msg dec run
         END
             in
@@ -3495,9 +3497,7 @@ let rec folder (run : r) meth =
                 Array.iteri (send_tree 1) stored_trees;
                 ()
         ELSE
-                print_msg "I will use cheap messages";
                 let enc = encode_trees print_msg run in
-                print_msg ("Sending to " ^ string_of_int other_rank);
                 Mpi.send enc other_rank Methods.do_job Mpi.comm_world
         END
             in
@@ -3529,10 +3529,10 @@ let rec folder (run : r) meth =
             in
             let rec reduce_them_all bit run =
                 if bit < world_size then
-                    reduce_them_all (bit lsl 1) (reduce_in_pairs bit run)
-                else List.fold_left folder run joiner
+                  reduce_them_all (bit lsl 1) (reduce_in_pairs bit run)
+                else
+                  List.fold_left folder run joiner
             in
-            let run = { run with stored_trees = `Empty } in
             let run = reduce_them_all 1 run in
             print_msg "Finished all gather";
             List.fold_left folder run continue
@@ -3609,61 +3609,69 @@ let rec folder (run : r) meth =
             let f = Hashtbl.find plugins name in
             f args run
         else begin
-            Status.user_message Status.Error 
-            ("There is no command " ^ name);
+            Status.user_message Status.Error ("There is no command " ^ name);
             failwith ("Illegal command " ^ name)
         end
-    | `StoreTrees -> 
+    | `StoreTrees ->
         { run with trees = `Empty;
                    stored_trees = Sexpr.map (fun x -> x.Ptree.tree) run.trees;}
-    | `UnionStored ->
+    | `UnionTrees -> 
         let stored_trees =
           Sexpr.map (fun x -> {(Ptree.empty run.data) with Ptree.tree=x})
                     run.stored_trees
         in
-        update_trees_to_data true false
-               { run with trees = Sexpr.union stored_trees run.trees;
-                   stored_trees = `Empty }
+        if Sexpr.is_empty stored_trees
+            then run
+            else
+              let nrun = 
+                update_trees_to_data true false
+                        {run with trees=stored_trees;stored_trees=`Empty}
+              in
+              {nrun with trees = Sexpr.union nrun.trees run.trees;}
+    | `UnionStored ->
+        let trees = Sexpr.map (fun x -> x.Ptree.tree) run.trees in
+        { run with trees = `Empty;
+                   stored_trees = Sexpr.union run.stored_trees trees;}
     | `GetStored ->
         let stored_trees =
           Sexpr.map (fun x ->{(Ptree.empty run.data) with Ptree.tree=x}) run.stored_trees
         in
-        update_trees_to_data true false
-          { run with trees=stored_trees; stored_trees=`Empty}
+        assert( not (Sexpr.is_empty stored_trees) );
+        update_trees_to_data true false {run with trees=stored_trees;stored_trees=`Empty}
     | `OnEachTree (dosomething, mergingscript) ->
-            let name = emit_identifier () in
-            let run = folder run (`Store ([`Data], name)) in
-            let run = 
-                if not (List.exists (function #Methods.transform -> true | _ -> false) dosomething) then
-                    { run with original_trees = run.trees } 
-                else run
-            in
-            let run = 
-                let eta = true in
-                Sexpr.fold_status
-                    "Running pipeline on each tree" ~eta
-                    (on_each_tree folder (`Set ([`Data], name)) dosomething mergingscript)
-                    run
-                    run.trees
-            in
-            let run = folder run (`Discard ([`Data], name)) in
-            run
+        let name = emit_identifier () in
+        let run = folder run (`Store ([`Data], name)) in
+        let run = 
+            if not (List.exists (function #Methods.transform -> true | _ -> false) dosomething) then
+                { run with original_trees = run.trees } 
+            else run
+        in
+        let run = 
+            let eta = true in
+            Sexpr.fold_status
+                "Running pipeline on each tree" ~eta
+                (on_each_tree folder (`Set ([`Data], name)) dosomething mergingscript)
+                run
+                run.trees
+        in
+        let run = folder run (`Discard ([`Data], name)) in
+        run
     | `ParallelPipeline (times, todo, composer, continue) ->
-            let name = emit_identifier () in
-            let run = folder run (`Store ([`Data], name)) in
-            let st = Status.create "Running Pipeline" (Some times) "times" in
-            let run = ref run in
-            let for_each = todo @ composer in
-            let timer = Timer.start () in
-            for adv = 1 to times do
-                run := folder !run (`Set ([`Data], name));
-                run := List.fold_left folder !run for_each;
-                let msg = Timer.status_msg (Timer.wall timer) adv times in
-                Status.full_report ~adv ~msg st;
-            done;
-            run := folder !run (`Discard ([`Data], name));
-            Status.finished st;
-            List.fold_left folder !run continue
+        let name = emit_identifier () in
+        let run = folder run (`Store ([`Data], name)) in
+        let st = Status.create "Running Pipeline" (Some times) "times" in
+        let run = ref run in
+        let for_each = todo @ composer in
+        let timer = Timer.start () in
+        for adv = 1 to times do
+            run := folder !run (`Set ([`Data], name));
+            run := List.fold_left folder !run for_each;
+            let msg = Timer.status_msg (Timer.wall timer) adv times in
+            Status.full_report ~adv ~msg st;
+        done;
+        run := folder !run (`Discard ([`Data], name));
+        Status.finished st;
+        List.fold_left folder !run continue
     (* The following methods are user friendly *)
     | #Methods.tree_handling as meth ->
             warn_if_no_trees_in_memory run.trees;

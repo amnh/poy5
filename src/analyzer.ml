@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3557 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3560 $"
 
 let debug = false
 
@@ -470,6 +470,7 @@ let dependency_relations (init : Methods.script) = match init with
        a script and make no sense by themselves *)
     | `StoreTrees
     | `UnionStored
+    | `UnionTrees
     | `OnEachTree _
     | `Skip
     | `Entry
@@ -545,37 +546,23 @@ let getchannels clas (chan, _) =
 let what_I_affect ((entry, data, trees, jackboot, bremer, channel), acc) item =
     match item with
     | Channel clas -> 
-            let my_children, independent =
-                List.partition (getchannels clas) channel
-            in
-            let _, my_children = List.split my_children in
-            (entry, data, trees, jackboot, bremer, independent), my_children ::
-                acc
-    | Data ->
-            (entry, [], trees, jackboot, bremer, channel), (data :: acc)
-    | Trees ->
-            (entry, data, [], jackboot, bremer, channel) , trees :: acc
-    | JackBoot ->
-            (entry, data, trees, [], bremer, channel), jackboot :: acc
-    | Bremer ->
-            (entry, data, trees, jackboot, [], channel), bremer :: acc
-    | EntryPoint ->
-            ([], data, trees, jackboot, bremer, channel), entry :: acc
+        let my_children, independent = List.partition (getchannels clas) channel in
+        let _, my_children = List.split my_children in
+        (entry, data, trees, jackboot, bremer, independent), my_children :: acc
+    | Data -> (entry, [], trees, jackboot, bremer, channel), (data :: acc)
+    | Trees -> (entry, data, [], jackboot, bremer, channel) , trees :: acc
+    | JackBoot -> (entry, data, trees, [], bremer, channel), jackboot :: acc
+    | Bremer -> (entry, data, trees, jackboot, [], channel), bremer :: acc
+    | EntryPoint -> ([], data, trees, jackboot, bremer, channel), entry :: acc
 
 let what_I_depend_on myt (entry, data, trees, jackboot, bremer, channel) item =
     match item with
-    | JackBoot -> 
-            (entry, data, trees, myt :: jackboot, bremer, channel)
-    | Bremer -> 
-            (entry, data, trees, jackboot, myt :: bremer, channel)
-    | Trees -> 
-            (entry, data, myt :: trees, jackboot, bremer, channel)
-    | Data -> 
-            (entry, myt :: data, trees, jackboot, bremer, channel)
-    | Channel clas -> 
-            (entry, data, trees, jackboot, bremer, (clas, myt) :: channel)
-    | EntryPoint ->
-            (myt :: entry, data, trees, jackboot, bremer, channel)
+    | JackBoot -> (entry, data, trees, myt :: jackboot, bremer, channel)
+    | Bremer -> (entry, data, trees, jackboot, myt :: bremer, channel)
+    | Trees -> (entry, data, myt :: trees, jackboot, bremer, channel)
+    | Data -> (entry, myt :: data, trees, jackboot, bremer, channel)
+    | Channel clas -> (entry, data, trees, jackboot, bremer, (clas, myt) :: channel)
+    | EntryPoint -> (myt :: entry, data, trees, jackboot, bremer, channel)
 
 let int_part_of = function
     | Parallel x -> x.order_p
@@ -792,13 +779,6 @@ let rec explode_tree tree =
     | tree -> tree
 
 
-    (*
-let explode_tree (tree, unresolved) =
-    match unresolved with
-    | [] -> explode_tree tree
-    | _ -> failwith "Something unresolved?"
-    *)
-
 (* Build a dependency graph by prepending the queadruple to the accumulator (the
 * last pair) *)
 let prepend_tree counter (depends, affects, script, exploders) (acc, roots) =
@@ -806,30 +786,30 @@ let prepend_tree counter (depends, affects, script, exploders) (acc, roots) =
     let depends = flatnsort depends
     and affects = flatnsort affects in
     let res, my_children = List.fold_left what_I_affect (acc, []) affects in
-    let tree =
-        match my_children with
+    let tree = match my_children with
         | [] -> InteractiveState !counter
         | _ ->
-                let my_children = List.flatten my_children in
-                List.iter (function
+            let my_children = List.flatten my_children in
+            List.iter
+                (function
                     | Tree x -> incr x.dep_counter
-                    | _ -> ()) my_children;
-                let v = {
-                    run = script;
-                    exploders = exploders;
-                    children = my_children;
-                    dep_counter = ref 0;
-                    order_c = !counter;
-                    thread = [];
-                    unique = ref [];
-                    weight_c = 0.0 }
-                in
-                Tree v
+                    | _ -> ())
+                my_children;
+            let v = {
+                run = script;
+                exploders = exploders;
+                children = my_children;
+                dep_counter = ref 0;
+                order_c = !counter;
+                thread = [];
+                unique = ref [];
+                weight_c = 0.0 }
+            in
+            Tree v
     in
     match depends with
     | [] -> (acc, tree :: roots)
-    | depends ->
-            List.fold_left (what_I_depend_on tree) res depends, roots
+    | depends -> List.fold_left (what_I_depend_on tree) res depends, roots
 
 let are_all_my_dependencies_within_my_thread mythread dependencies =
     let is_prefix a b =
@@ -849,26 +829,19 @@ let are_all_my_dependencies_within_my_thread mythread dependencies =
 
 let extract_shared_prefix threads = 
     let get_shared (depa, a) (depb, b) =
-        let rec get_shared a b =
-            match a, b with
-            | _, []
-            | [], _ -> []
-            | ha :: ta, hb :: tb ->
-                    if ha = hb then ha :: get_shared ta tb
-                    else []
+        let rec get_shared a b = match a, b with
+            | _, [] | [], _ -> []
+            | ha :: ta, hb :: tb -> if ha = hb then ha :: get_shared ta tb else []
         in
         let b = List.rev b in
         (depa @ depb), get_shared a b 
     in
     match threads with
-    | (dep, h) :: t ->
-            List.fold_left get_shared (dep, List.rev h) t
+    | (dep, h) :: t -> List.fold_left get_shared (dep, List.rev h) t
     | [] -> [], []
 
-let rec is_same_list a b =
-    match a, b with
-    | ha :: ta, hb :: tb ->
-            ha = hb && is_same_list ta tb
+let rec is_same_list a b = match a, b with
+    | ha :: ta, hb :: tb -> ha = hb && is_same_list ta tb
     | [], [] -> true
     | _, _ -> false
 
@@ -1224,20 +1197,15 @@ let simplify_store_set script =
     in
     simplify_script script
 
-let remove_set lst =
-    match lst with
-    | (`Set _) :: t -> t
-    | x -> x
+let remove_set lst = match lst with | (`Set _) :: t -> t | x -> x
 
 let remove_trees_of_set = function
-    | `Set (items, name) ->
-            (`Set ((List.filter (fun x -> x <> `Trees) items), name))
+    | `Set (items, name) -> `Set ((List.filter (fun x -> x <> `Trees) items), name)
     | x -> x
 
 let remove_all_trees_from_set = List.map remove_trees_of_set
 
-let remove_trees_from_set lst = 
-    match lst with
+let remove_trees_from_set lst = match lst with
     | h :: t -> (remove_trees_of_set h) :: t
     | [] -> []
 
@@ -1247,123 +1215,101 @@ let rec linearize2 queue acc =
         let tree = Queue.pop queue in
         match tree with
         | Concurrent x ->
-                let my_name = emit_name x.thread in
-                acc := (`Store (all_dependencies, my_name)) :: x.run :: !acc;
-                let continue = x.unique in
-                let children = x.children in
-                let myqueue = Queue.create () in
-                List.iter (fun x -> Queue.add x myqueue) children;
-                List.iter (fun (_, _, x) -> Queue.add x queue) continue;
-                linearize2 myqueue acc;
+            let my_name = emit_name x.thread in
+            acc := (`Store (all_dependencies, my_name)) :: x.run :: !acc;
+            let continue = x.unique in
+            let children = x.children in
+            let myqueue = Queue.create () in
+            List.iter (fun x -> Queue.add x myqueue) children;
+            List.iter (fun (_, _, x) -> Queue.add x queue) continue;
+            linearize2 myqueue acc;
         | Tree x -> 
-                let my_name = emit_name x.thread in
-                let deps = 
-                    try get_dependencies !(x.unique) with 
-                    | Not_found as err ->
-                        Printf.printf "My f thread is %s\n%!" 
-                        (String.concat ", " (List.map string_of_int x.thread));
-                        raise err
-                in
-                acc := (`Store (all_dependencies, my_name)) :: x.run :: (deps @ !acc);
-                List.iter (fun y -> linearize2 (single_queue y) acc)
-                          (sort_list x.children)
+            let my_name = emit_name x.thread in
+            let deps = get_dependencies !(x.unique) in
+            acc := (`Store (all_dependencies, my_name)) :: x.run :: (deps @ !acc);
+            List.iter (fun y -> linearize2 (single_queue y) acc)
+                      (sort_list x.children)
         | InteractiveState _ -> ()
         | Parallel y ->
-                match y.todo_p with
-                | Tree x ->
-                        let my_name = emit_name x.thread in
-                        let deps = 
-                            try get_dependencies !(x.unique) with 
-                            | Not_found as err ->
-                                Printf.printf "My thread is %s\n%!" 
-                                (String.concat ", " (List.map string_of_int x.thread));
-                                raise err
+            begin match y.todo_p with
+            | Tree x ->
+                let my_name = emit_name x.thread in
+                let deps = get_dependencies !(x.unique) in
+                begin match x.run with
+                | `Build (total, b, c, d) ->
+                    let item = Tree { x with run = `Build (1, b, c, d) } in
+                    let todol = ref []
+                    and composerl = ref []
+                    and nextl = ref [] in
+                    linearize2 (single_queue item) todol;
+                    linearize2 (single_queue y.composer) composerl;
+                    linearize2 (single_queue y.next) nextl;
+                    let todol = deps @ remove_trees_from_set (List.rev !todol)
+                    and nextl = `GetStored::remove_trees_from_set (List.rev !nextl) 
+                    and composerl = 
+                        `UnionStored::remove_trees_from_set (List.rev !composerl)
+                    in
+                    acc := 
+                        `Store (all_dependencies, my_name) ::
+                          `ParallelPipeline (total,todol,composerl,nextl)::(!acc);
+                | `LocalOptimum l ->
+                    let rec singlize n = function
+                      | [] -> []
+                      | (`LocalOptimum l) :: xs -> 
+                          (`LocalOptimum {l with Methods.ss = `SingleNeighborhood n})
+                            :: (singlize n xs)
+                      | x::xs -> x :: (singlize n xs)
+                    in
+                    let composerl = ref []
+                    and nextl = ref []
+                    and iteml = ref [] in
+                    linearize2 (single_queue y.todo_p) iteml;
+                    linearize2 (single_queue y.composer) composerl;
+                    linearize2 (single_queue y.next) nextl;
+                    let deps = (remove_all_trees_from_set (List.rev deps)) in
+                    let iteml = deps @ remove_trees_from_set (List.rev !iteml)
+                    and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
+                    (* if l.Methods.parallel then
+                        let unique = `UniqueNames l.Methods.keep in
+                        let compl = `UnionTrees :: unique :: List.rev (`StoreTrees ::(!composerl))
+                        and restl = `GetStored :: unique :: [] in
+                        let fst  = `OnEachTree([],[`AssignTreeNames])::(!acc) in
+                        let par = match l.Methods.ss with
+                            | `None
+                            | `SingleNeighborhood _ ->
+                                [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,restl)]
+                            | `ChainNeighborhoods n ->
+                                let iteml = singlize n iteml in
+                                [ `Store (all_dependencies, my_name);
+                                  `Repeat(`TreeCostConverge,
+                                    [ `ParallelPipeline (1,iteml,compl,restl);])]
+                            | `Alternate (a,b) ->
+                                let iteml1 = singlize a iteml in
+                                let iteml2 = singlize b iteml in
+                                [ `Store (all_dependencies, my_name);
+                                  `Repeat(`TreeCostConverge,
+                                    [ `ParallelPipeline (1,iteml1,compl,restl);
+                                      `ParallelPipeline (1,iteml2,compl,restl);])]
                         in
-                    begin match x.run with
-                        | `Build (total, b, c, d) ->
-                                let item = Tree { x with run = `Build (1, b, c, d) } in
-                                let todol = ref []
-                                and composerl = ref []
-                                and nextl = ref [] in
-                                linearize2 (single_queue item) todol;
-                                linearize2 (single_queue y.composer) composerl;
-                                linearize2 (single_queue y.next) nextl;
-                                let todol =
-                                    deps @ remove_trees_from_set (List.rev !todol)
-                                and nextl = remove_trees_from_set (List.rev !nextl) 
-                                and composerl = 
-                                    remove_trees_from_set (List.rev (`StoreTrees :: !composerl))
-                                in
-                                acc := 
-                                    `Store (all_dependencies, my_name) ::
-                                        `ParallelPipeline (total, todol, 
-                                        `UnionStored :: composerl, 
-                                            `GetStored :: nextl) :: (!acc);
-                        | `LocalOptimum l ->
-                                let rec singlize n = function
-                                  | [] -> []
-                                  | (`LocalOptimum l) :: xs -> 
-                                      (`LocalOptimum
-                                          {l with Methods.ss = `SingleNeighborhood n})
-                                      :: (singlize n xs)
-                                  | x::xs -> x :: (singlize n xs)
-                                in
-                                let composerl = ref []
-                                and nextl = ref []
-                                and iteml = ref [] in
-                                linearize2 (single_queue y.todo_p) iteml;
-                                linearize2 (single_queue y.composer) composerl;
-                                linearize2 (single_queue y.next) nextl;
-                                let deps = (remove_all_trees_from_set (List.rev deps)) in
-                                let iteml = deps @ remove_trees_from_set (List.rev !iteml)
-                                and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
-                                if l.Methods.parallel
-                                then
-                                  let unique = `UniqueNames l.Methods.keep in
-                                  let compl = `UnionStored :: unique :: `StoreTrees :: List.rev !composerl
-                                  and restl = `GetStored :: unique :: [] in
-                                  let fst  = `OnEachTree([],[`AssignTreeNames])::`Barrier::(!acc) in
-                                  let par = match l.Methods.ss with
-                                      | `None
-                                      | `SingleNeighborhood _ ->
-                                          [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,restl)]
-                                      | `ChainNeighborhoods n ->
-                                          let iteml = singlize n iteml in
-                                            [`Repeat(`TreeCostConverge,
-                                              [ `Store (all_dependencies, my_name);
-                                                `ParallelPipeline (1,iteml,compl,restl); ])];
-                                      | `Alternate (a,b) ->
-                                          let iteml1 = singlize a iteml in
-                                          let iteml2 = singlize b iteml in
-                                          [`Repeat(`TreeCostConverge,
-                                                 [`Store (all_dependencies, my_name);
-                                                  `ParallelPipeline(1,iteml1,compl,restl);
-                                                  `Store (all_dependencies, my_name);
-                                                  `ParallelPipeline (1,iteml2,compl,restl)])]
-                                  in
-                                  acc := nextl @ par @ fst
-                                else
-                                  acc :=
-                                    nextl @
-                                      `Store (all_dependencies, my_name) ::
-                                        (`OnEachTree (iteml, List.rev !composerl)) :: (!acc)
-                        | `PerturbateNSearch _->
-                                let composerl = ref []
-                                and nextl = ref []
-                                and iteml = ref [] in
-                                linearize2 (single_queue y.todo_p) iteml;
-                                linearize2 (single_queue y.composer) composerl;
-                                linearize2 (single_queue y.next) nextl;
-                                let deps = (remove_all_trees_from_set (List.rev deps)) in
-                                let iteml = deps @ remove_trees_from_set (List.rev !iteml)
-                                and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
-                                acc := nextl @
-                                    `Store (all_dependencies, my_name) ::
-                                    (`OnEachTree (iteml, List.rev !composerl)) 
-                                        :: (!acc)
-                        | _ -> assert false
-                    end
+                        acc := nextl @ par @ fst
+                    else *)
+                        let compl = List.rev !composerl in
+                        acc := nextl @ `Store (all_dependencies,my_name) :: `OnEachTree (iteml,compl)::(!acc)
+                | `PerturbateNSearch _->
+                    let composerl = ref []
+                    and nextl = ref []
+                    and iteml = ref [] in
+                    linearize2 (single_queue y.todo_p) iteml;
+                    linearize2 (single_queue y.composer) composerl;
+                    linearize2 (single_queue y.next) nextl;
+                    let deps = (remove_all_trees_from_set (List.rev deps)) in
+                    let iteml = deps @ remove_trees_from_set (List.rev !iteml)
+                    and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
+                    acc := nextl @ `Store (all_dependencies,my_name) :: `OnEachTree (iteml, List.rev !composerl)::(!acc)
                 | _ -> assert false
+                end
+            | _ -> assert false
+            end
     done
 
 let linearize tree _ =
@@ -1460,16 +1406,16 @@ let break_in_independent_sections x =
     in
     a :: b
 
+(** Add Store commands for transform based build and search commands *)
 let rec correct_parallel_pipelines_with_internal_transform (res : Methods.script list)= 
     match res with
     | (`ParallelPipeline (times, ((h :: t) as acc), comp, continue)) as hd :: tl ->
-            let tl = correct_parallel_pipelines_with_internal_transform tl in
-            let continue = correct_parallel_pipelines_with_internal_transform continue in
-            (match h with
+        let tl = correct_parallel_pipelines_with_internal_transform tl in
+        let continue = correct_parallel_pipelines_with_internal_transform continue in
+        begin match h with
             | `Build (a, b, cost_calculation, i) ->
-                    (match cost_calculation with
-                    | [] -> 
-                            (`ParallelPipeline (times, acc, comp, continue)) :: tl
+                begin match cost_calculation with
+                    | [] -> (`ParallelPipeline (times, acc, comp, continue)) :: tl
                     | _ ->
                         let name_post = emit_name [] 
                         and name_pre = emit_name [] in
@@ -1478,31 +1424,29 @@ let rec correct_parallel_pipelines_with_internal_transform (res : Methods.script
                         let make_set name = `Set (dtlst, name) in
                         let make_store name = `Store (dtlst, name) in
                         let continue = 
-                            (make_discard name_pre) :: (make_discard name_post)
-                            :: continue
-                        in
-                        let acc = (make_set name_post) :: (`Build (a, b, [],i)) ::
-                            (make_set name_pre) :: t
+                            (make_discard name_pre)::(make_discard name_post)::continue
+                        and acc =
+                            (make_set name_post)::(`Build (a, b, [],i))::(make_set name_pre)::t
                         in
                         (make_store name_pre) :: 
-                        ((cost_calculation :> Methods.script list) @ 
+                          ((cost_calculation :> Methods.script list) @ 
                             ((make_store name_post) ::
-                                (`ParallelPipeline (times, acc, comp, continue))
-                                :: tl)))
+                              (`ParallelPipeline (times,acc,comp,continue))::tl))
+                end
             | `Branch_and_Bound ((_, _, _, _, cost_calculation),_)
             | `LocalOptimum { Methods.cc = cost_calculation } 
-            | `PerturbateNSearch (_, _, `LocalOptimum { Methods.cc =
-                cost_calculation } , _, _) ->
-                    if List.exists is_tree_dependent cost_calculation then
-                        let name = emit_name [] in
-                        (`Store ([`Trees], name)) ::
-                        `ParallelPipeline (times, (`Set ([`Trees], name)) ::
-                            acc, comp, (`Discard ([`Trees], name)) ::
-                                continue) :: tl
+            | `PerturbateNSearch (_,_,`LocalOptimum {Methods.cc=cost_calculation},_,_) ->
+                if List.exists is_tree_dependent cost_calculation then
+                    let name = emit_name [] in
+                    (`Store ([`Trees], name)) ::
+                      `ParallelPipeline (times,(`Set ([`Trees],name))::acc,comp,
+                                          (`Discard ([`Trees],name))::continue) :: tl
                     else 
-                        (`ParallelPipeline (times, acc, comp, continue)) :: tl
-            | _ -> hd :: tl)
-    | hd :: tl -> hd :: (correct_parallel_pipelines_with_internal_transform tl)
+                        (`ParallelPipeline (times, acc, comp, continue))::tl
+            | _ -> hd :: tl
+        end
+    | hd :: tl ->
+        hd :: (correct_parallel_pipelines_with_internal_transform tl)
     | [] -> []
 
 
@@ -1716,7 +1660,8 @@ let rec script_to_string (init : Methods.script) =
     | `SelectYourTrees  -> "@[Each processor selects the trees it will work on@]"
     | `Skip             -> "@[Skip@]"
     | `StoreTrees       -> "@[Store Trees@]"
-    | `UnionStored      -> "@[Get Stored Union Trees@]"
+    | `UnionStored      -> "@[Store and Union Trees@]"
+    | `UnionTrees       -> "@[Union Stored Trees@]"
     | `GetStored        -> "@[Get Stored Trees@]"
     | `Repeat (`Num n, comm) ->
         let header = "@[@[ Repeat a script "^(string_of_int n)^" times@]"
@@ -1727,7 +1672,7 @@ let rec script_to_string (init : Methods.script) =
         and a_str = "@[While@]"::List.map script_to_string comm in
         String.concat " " (header :: a_str @ ["@]"])
     | `GatherTrees (a,b)->
-        let header = "@[@[Exchange trees with other processes@]" in
+        let header = "@[@[Gather trees with other processes@]" in
         let a_str = "@[First@]"::List.map script_to_string a
         and b_str = "@[Then@]"::((List.map script_to_string b) @ ["@]"]) in
         String.concat " " (header :: a_str @ b_str)
@@ -1905,6 +1850,7 @@ let is_master_only (init : Methods.script) = match init with
     | `Skip
     | `StoreTrees
     | `UnionStored 
+    | `UnionTrees
     | `OnEachTree _
     | `ParallelPipeline _ 
     | `GetStored 
@@ -2132,14 +2078,14 @@ let rec parallel_analysis mine n (script : Methods.script list) =
                 | `ParallelPipeline (a,b,c,d) ->
                     let d = parallel_analysis mine n d in
                     let d = match d with
-                        | `GetStored::t -> [`Barrier;`GetStored;`GatherTrees (c,d)]
+                        | `GetStored::t -> [`Barrier;`GatherTrees (c,d)]
                         | _ -> failwith "No GetStored?"
                     in
                     let a = if partition_swap b then 1 else my_part mine n a in
                     [`ParallelPipeline(a,b,c,d)]
                 | (`OnEachTree (_,m)) ->
                     let m = `UnionStored :: (m @ [`StoreTrees]) in
-                    [`GatherTrees (m,[`GetStored]);`Barrier;meth;`SelectYourTrees]
+                    [`GatherTrees (m,[`GetStored]);`Barrier; meth;`SelectYourTrees]
                 | `Jackknife (a,it,b,c,d) ->
                     let it = my_part mine n it in
                     [`GatherJackknife; `Jackknife (a, it, b, c, d)]
@@ -2150,8 +2096,8 @@ let rec parallel_analysis mine n (script : Methods.script list) =
                     [`GatherBremer; `Bremer (a, b, mine, n)]
                 | `Fusing (iterations,max_trees,a,b,c,d) ->
                     let merger = match max_trees with
-                        | None  -> [`UnionStored;`StoreTrees]
-                        | Some x-> [`UnionStored;`BestN max_trees;`StoreTrees]
+                        | None  -> [`StoreTrees]
+                        | Some x-> [`UnionTrees;`BestN max_trees;`StoreTrees]
                     in
                     let meth = match iterations with
                         | None  -> meth
