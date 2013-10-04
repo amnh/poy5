@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3560 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3561 $"
 
 let (-->) a b = b a
 
@@ -1285,6 +1285,12 @@ type build_optimum = tree list
 
 let ndebug = true
 let ndebug_no_catch = true
+
+let debugparallel format =
+  let debug = false in
+  let f = if debug then print_string else (fun _ -> ()) in
+  Printf.ksprintf f format
+
 
 (** [reroot_at_outgroup data ptree] reroots [ptree] at the root specified in
     [data].  If the root is not present, the tree will not be rerooted. *)
@@ -2934,8 +2940,8 @@ let rec process_application run item =
     let run = reroot_at_outgroup run in
     match item with
     | `Algn_Newkk | `Algn_Normal as meth when meth <> !Methods.algn_mode ->
-            Methods.algn_mode := meth;
-            process_application run `ReDiagnoseTrees
+        Methods.algn_mode := meth;
+        process_application run `ReDiagnoseTrees
     | `Algn_Newkk | `Algn_Normal
     | `Interactive -> run
     | `Optimization opt_mode ->
@@ -2974,6 +2980,7 @@ let rec process_application run item =
             Sys.chdir dir;
             run
     | `AssignTreeNames ->
+        debugparallel "%d ASSIGN NAMES: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         (** internal function to place names on trees for book-keeping *)
         let curr_unique_names =
           Sexpr.fold_left
@@ -3000,17 +3007,15 @@ let rec process_application run item =
         in
         { run with trees = Sexpr.of_list tree_list;}
     | `PrintWDir ->
-            Status.user_message Status.Information 
-            ("The current working directory is " ^ (StatusCommon.escape
-            (Sys.getcwd ())));
-            run
+        Status.user_message Status.Information ("The current working directory is " ^ (StatusCommon.escape (Sys.getcwd ())));
+        run
     | `Recover -> do_recovery run
     | `ClearRecovered -> Queue.clear run.queue.Sampler.queue; run
     | `ClearMemory items -> 
-            let has_item item = List.exists (fun x -> x = item) items in
-            if has_item `Matrices then Matrix.flush ();
-            Gc.full_major (); 
-            run
+        let has_item item = List.exists (fun x -> x = item) items in
+        if has_item `Matrices then Matrix.flush ();
+        Gc.full_major (); 
+        run
     | `TimerInterval x -> Tabus.timer_interval := x; run
     | `Parmap x ->
         IFDEF USE_PARMAP THEN
@@ -3030,88 +3035,88 @@ let rec process_application run item =
     | `Help item -> HelpIndex.help item; run
     | `Wipe -> empty ()
     | `Echo (s, c) ->
-            let s = StatusCommon.escape s in
-            let c = match c with
-                | `Information -> Status.Information
-                | `Error -> Status.Error
-                | `Output str -> begin match str with
-                    | None -> Status.Output (None, false, [])
-                    | Some str -> Status.Output (Some str, false, [])
-                end
-            in
-            Status.user_message c (s ^ "@\n%!");
+        let s = StatusCommon.escape s in
+        let c = match c with
+            | `Information -> Status.Information
+            | `Error -> Status.Error
+            | `Output str -> begin match str with
+                | None -> Status.Output (None, false, [])
+                | Some str -> Status.Output (Some str, false, [])
+            end
+        in
+        Status.user_message c (s ^ "@\n%!");
             run
      | `Graph (filename, collapse) ->
-             let run = reroot_at_outgroup run in
-             let trees = Sexpr.to_list run.trees in
-             let trees = Array.of_list trees in
-             if 0 = Array.length trees then run
-             else begin
-                let trees =
-                    Array.map
-                        (fun x ->
-                            let cost = (Ptree.get_cost `Adjusted x) in
-                            cost, (TS.build_forest_as_tree collapse x ""))
-                        trees
-                in
-                match filename with 
-                    | Some filename ->
-                        GraphicsPs.display "" filename trees; run
-                    | None ->
-                        Status.user_message Status.Information 
-                            ("@[Interactive@ graphics@ are@ not@ supported@ "
-                            ^"in@ this@ compiled@ version@ of@ POY.@ Here@ is@ "
-                            ^"the@ ascii@ art@ though:@]");
-                        process_application run (`Ascii (None, collapse))
-            end
+        let run = reroot_at_outgroup run in
+        let trees = Sexpr.to_list run.trees in
+        let trees = Array.of_list trees in
+        if 0 = Array.length trees then run
+        else begin
+          let trees =
+              Array.map
+                  (fun x ->
+                      let cost = (Ptree.get_cost `Adjusted x) in
+                      cost, (TS.build_forest_as_tree collapse x ""))
+                      trees
+          in
+          match filename with 
+              | Some filename ->
+                  GraphicsPs.display "" filename trees; run
+              | None ->
+                  Status.user_message Status.Information 
+                      ("@[Interactive@ graphics@ are@ not@ supported@ "
+                      ^"in@ this@ compiled@ version@ of@ POY.@ Here@ is@ "
+                      ^"the@ ascii@ art@ though:@]");
+                  process_application run (`Ascii (None, collapse))
+        end
      | `Ascii (filename, collapse) ->
-            let trees =
-                Sexpr.map
-                    (fun x ->
-                        let cost = int_of_float (Ptree.get_cost `Adjusted x) in
-                        let str = string_of_int cost in
-                        cost, TS.build_forest_as_tree collapse x str)
-                    run.trees
-            in
-            Sexpr.leaf_iter
-                (fun (cost, x) ->
-                    let r = AsciiTree.to_string ~sep:2 ~bd:2 false x in
-                    Status.user_message (Status.Output (filename,false, [])) 
-                        ("@[@[<v>@[Tree@ with@ cost@ " ^ string_of_int cost ^ "@]@,@[");
-                    Status.user_message (Status.Output (filename,false, [])) r;
-                    Status.user_message (Status.Output (filename, false, [])) "@]@]@]%!";)
-                trees;
-            run
+        let trees =
+            Sexpr.map
+                (fun x ->
+                    let cost = int_of_float (Ptree.get_cost `Adjusted x) in
+                    let str = string_of_int cost in
+                    cost, TS.build_forest_as_tree collapse x str)
+                run.trees
+        in
+        Sexpr.leaf_iter
+            (fun (cost, x) ->
+                let r = AsciiTree.to_string ~sep:2 ~bd:2 false x in
+                Status.user_message (Status.Output (filename,false, [])) 
+                    ("@[@[<v>@[Tree@ with@ cost@ " ^ string_of_int cost ^ "@]@,@[");
+                Status.user_message (Status.Output (filename,false, [])) r;
+                Status.user_message (Status.Output (filename, false, [])) "@]@]@]%!";)
+            trees;
+        run
      | `Memory filename ->
-             let memory_usage = report_memory () in
-             Status.user_message (Status.Output (filename, false,[])) memory_usage;
-             run
+        let memory_usage = report_memory () in
+        Status.user_message (Status.Output (filename, false,[])) memory_usage;
+        run
      | `KML (plugin, csv, output_file) ->
-            let plugin = match plugin with
-                | None -> "default"
-                | Some x -> x
-            in
-            let csv = match csv with
-                | `Local f -> f
-                | `Remote f -> failwith "The csv must be available locally"
-            in
-            Kml.KFile.kml ~plugin "POY analysis" output_file run.data csv run.trees;
-            run
+        let plugin = match plugin with
+            | None -> "default"
+            | Some x -> x
+        in
+        let csv = match csv with
+            | `Local f -> f
+            | `Remote f -> failwith "The csv must be available locally"
+        in
+        Kml.KFile.kml ~plugin "POY analysis" output_file run.data csv run.trees;
+        run
      | `InspectFile str ->
-            try let (desc, _, _) = PoyFile.read_file str in
-                let desc = match desc with
-                     | None -> "No@ description@ available."
-                     | Some d -> d
-                in
-                Status.user_message Status.Information
-                    ("@[<v 2>" ^ (StatusCommon.escape str) ^
-                     " is a POY file: @,@[" ^ desc ^ "@]@]");
-                run
-             with | _ -> 
-                Status.user_message Status.Information
-                    ("The@ file@ " ^ StatusCommon.escape str ^
-                     "@ is@ not@ a@ valid" ^ "@ POY@ fileformat.");
-                run
+        try let (desc, _, _) = PoyFile.read_file str in
+            let desc = match desc with
+                 | None -> "No@ description@ available."
+                 | Some d -> d
+            in
+            Status.user_message Status.Information
+                ("@[<v 2>" ^ (StatusCommon.escape str) ^
+                 " is a POY file: @,@[" ^ desc ^ "@]@]");
+            run
+         with | _ -> 
+            Status.user_message Status.Information
+                ("The@ file@ " ^ StatusCommon.escape str ^
+                 "@ is@ not@ a@ valid" ^ "@ POY@ fileformat.");
+            run
 
 
 let range_timer = ref (Timer.start ())
@@ -3353,6 +3358,7 @@ let rec folder (run : r) meth =
     let res = match meth with
     (* The following methods are only used by the parallel execution *)
     | `Barrier -> (* Wait for synchronization with every other process *)
+        debugparallel "%d BARRIER: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         IFDEF USEPARALLEL THEN
             print_msg "Entering barrier";
             let print_io_messages () =
@@ -3406,6 +3412,7 @@ let rec folder (run : r) meth =
         END
 
     | `GatherTrees (joiner, continue) ->
+        debugparallel "%d GATHER: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         IFDEF USEPARALLEL THEN
             print_msg "Entering Gather Trees";
             (* We define a function to reduce in parallel the results *)
@@ -3612,10 +3619,17 @@ let rec folder (run : r) meth =
             Status.user_message Status.Error ("There is no command " ^ name);
             failwith ("Illegal command " ^ name)
         end
+    | `ClearTrees ->
+        debugparallel "%d CLEAR TREES: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
+        if (fst (get_sizerank ())) = 0
+          then run
+          else {run with trees = `Empty; stored_trees = `Empty;}
     | `StoreTrees ->
+        debugparallel "%d STORE TREES: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         { run with trees = `Empty;
                    stored_trees = Sexpr.map (fun x -> x.Ptree.tree) run.trees;}
-    | `UnionTrees -> 
+    | `UnionTrees ->
+        debugparallel "%d UNION TREES: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         let stored_trees =
           Sexpr.map (fun x -> {(Ptree.empty run.data) with Ptree.tree=x})
                     run.stored_trees
@@ -3629,16 +3643,19 @@ let rec folder (run : r) meth =
               in
               {nrun with trees = Sexpr.union nrun.trees run.trees;}
     | `UnionStored ->
+        debugparallel "%d UNION STORED: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         let trees = Sexpr.map (fun x -> x.Ptree.tree) run.trees in
         { run with trees = `Empty;
                    stored_trees = Sexpr.union run.stored_trees trees;}
     | `GetStored ->
+        debugparallel "%d GET STORED: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         let stored_trees =
           Sexpr.map (fun x ->{(Ptree.empty run.data) with Ptree.tree=x}) run.stored_trees
         in
         assert( not (Sexpr.is_empty stored_trees) );
         update_trees_to_data true false {run with trees=stored_trees;stored_trees=`Empty}
     | `OnEachTree (dosomething, mergingscript) ->
+        debugparallel "%d ON EACH TREE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         let name = emit_identifier () in
         let run = folder run (`Store ([`Data], name)) in
         let run = 
@@ -3657,6 +3674,7 @@ let rec folder (run : r) meth =
         let run = folder run (`Discard ([`Data], name)) in
         run
     | `ParallelPipeline (times, todo, composer, continue) ->
+        debugparallel "%d PARALLEL: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         let name = emit_identifier () in
         let run = folder run (`Store ([`Data], name)) in
         let st = Status.create "Running Pipeline" (Some times) "times" in
@@ -3674,19 +3692,21 @@ let rec folder (run : r) meth =
         List.fold_left folder !run continue
     (* The following methods are user friendly *)
     | #Methods.tree_handling as meth ->
-            warn_if_no_trees_in_memory run.trees;
-            process_tree_handling run meth
+        debugparallel "%d FILTER: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
+        warn_if_no_trees_in_memory run.trees;
+        process_tree_handling run meth
     | #Methods.characters_handling as meth ->
-            update_trees_to_data false true (process_characters_handling run meth)
+        update_trees_to_data false true (process_characters_handling run meth)
     | #Methods.taxa_handling as meth ->
-            process_taxon_filter run meth 
+        process_taxon_filter run meth 
     | #Methods.application as meth ->
-            process_application run meth
+        process_application run meth
     | #Methods.input as meth ->
-            process_input run meth 
+        process_input run meth 
     | #Methods.transform as meth ->
-            process_transform run meth
+        process_transform run meth
     | #Methods.build as meth ->
+        debugparallel "%d BUILD: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         begin match run.nodes with
         | [] ->
             Status.user_message Status.Warning "There@ is@ no@ data@ in@ memory!";
@@ -3705,6 +3725,7 @@ let rec folder (run : r) meth =
             end
         end
     | #Methods.local_optimum as meth ->
+            debugparallel "%d SWAP: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
             warn_if_no_trees_in_memory run.trees;
             let sets =
                 let `LocalOptimum m = meth in
@@ -3780,6 +3801,7 @@ let rec folder (run : r) meth =
                 S.bremer_support run.trees my_rank modul run.nodes run.trees local_optimum build 
                 run.data run.queue }
     | #Methods.escape_local as meth ->
+            debugparallel "OPTIMIZE: %d / %d\n%!" (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
             warn_if_no_trees_in_memory run.trees;
             let (`PerturbateNSearch (tr, _, search_meth, _, _)) = meth in
             let choose_best trees = 
@@ -3863,6 +3885,7 @@ let rec folder (run : r) meth =
     | #Methods.runtime_store as meth -> 
             runtime_store (update_trees_to_data false false) run meth 
     | `Repeat (n, comm) ->
+        debugparallel "%d REPEAT: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         let best_tree_cost trees =
           let costs =
             List.sort (fun x y -> ~- (Pervasives.compare x y))

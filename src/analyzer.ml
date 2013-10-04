@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3560 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3561 $"
 
 let debug = false
 
@@ -477,6 +477,7 @@ let dependency_relations (init : Methods.script) = match init with
     | `ParallelPipeline _
     | `Barrier 
     | `GatherTrees _
+    | `ClearTrees
     | `GatherJackknife 
     | `GatherBremer 
     | `SelectYourTrees 
@@ -1255,8 +1256,7 @@ let rec linearize2 queue acc =
                 | `LocalOptimum l ->
                     let rec singlize n = function
                       | [] -> []
-                      | (`LocalOptimum l) :: xs -> 
-                          (`LocalOptimum {l with Methods.ss = `SingleNeighborhood n})
+                      | (`LocalOptimum l) :: xs -> (`LocalOptimum {l with Methods.ss = `SingleNeighborhood n})
                             :: (singlize n xs)
                       | x::xs -> x :: (singlize n xs)
                     in
@@ -1269,14 +1269,14 @@ let rec linearize2 queue acc =
                     let deps = (remove_all_trees_from_set (List.rev deps)) in
                     let iteml = deps @ remove_trees_from_set (List.rev !iteml)
                     and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
-                    (* if l.Methods.parallel then
-                        let unique = `UniqueNames l.Methods.keep in
-                        let compl = `UnionTrees :: unique :: List.rev (`StoreTrees ::(!composerl))
-                        and restl = `GetStored :: unique :: [] in
-                        let fst  = `OnEachTree([],[`AssignTreeNames])::(!acc) in
+                    if l.Methods.parallel then
+                        let unique= `UniqueNames l.Methods.keep in
+                        let compl = `UnionStored :: List.rev !composerl
+                        and restl = `GetStored :: unique :: []
+                        and fst   = `GetStored::`GatherTrees([],[])::`ClearTrees::`StoreTrees::`AssignTreeNames::!acc
+                        and iteml = iteml in
                         let par = match l.Methods.ss with
-                            | `None
-                            | `SingleNeighborhood _ ->
+                            | `None | `SingleNeighborhood _ ->
                                 [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,restl)]
                             | `ChainNeighborhoods n ->
                                 let iteml = singlize n iteml in
@@ -1292,9 +1292,10 @@ let rec linearize2 queue acc =
                                       `ParallelPipeline (1,iteml2,compl,restl);])]
                         in
                         acc := nextl @ par @ fst
-                    else *)
+                    else
                         let compl = List.rev !composerl in
-                        acc := nextl @ `Store (all_dependencies,my_name) :: `OnEachTree (iteml,compl)::(!acc)
+                        acc := nextl @ `Store (all_dependencies,my_name)
+                                    :: `OnEachTree (iteml,compl)::(!acc)
                 | `PerturbateNSearch _->
                     let composerl = ref []
                     and nextl = ref []
@@ -1663,6 +1664,7 @@ let rec script_to_string (init : Methods.script) =
     | `UnionStored      -> "@[Store and Union Trees@]"
     | `UnionTrees       -> "@[Union Stored Trees@]"
     | `GetStored        -> "@[Get Stored Trees@]"
+    | `ClearTrees       -> "@[Clear Trees in helper nodes@]"
     | `Repeat (`Num n, comm) ->
         let header = "@[@[ Repeat a script "^(string_of_int n)^" times@]"
         and a_str = "@[While@]"::List.map script_to_string comm in
@@ -1851,6 +1853,8 @@ let is_master_only (init : Methods.script) = match init with
     | `StoreTrees
     | `UnionStored 
     | `UnionTrees
+    | `ClearTrees
+    | `AssignTreeNames
     | `OnEachTree _
     | `ParallelPipeline _ 
     | `GetStored 
@@ -1883,7 +1887,6 @@ let is_master_only (init : Methods.script) = match init with
     | `Model _
     | `LKSites _
     | `ExplainScript _
-    | `AssignTreeNames
     | `PrintWDir
     | `Memory _
     | `KML _

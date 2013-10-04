@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 3557 $"
+let () = SadmanOutput.register "Main" "$Revision: 3561 $"
 
 let seed = truncate (Unix.time ())
 
@@ -213,9 +213,7 @@ let () =
                           List.iter
                             (fun x ->
                                 x --> Analyzer.script_to_string
-(*                                   --> StatusCommon.string_to_format *)
-(*                                   --> Format.printf) *)
-                              --> Printf.printf "%s")
+                                  --> Printf.printf "%s")
                             script;
                         script
                 END
