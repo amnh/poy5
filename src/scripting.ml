@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3562 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3563 $"
 
 let (-->) a b = b a
 
@@ -86,7 +86,7 @@ type ('a, 'b) run = {
     jackknife_store : support_class str_htbl;
     tree_store : ('a, 'b) Ptree.p_tree Sexpr.t str_htbl;
     queue : Sampler.ft_queue;
-    stored_trees : (model_data * Tree.u_tree) Sexpr.t;
+    stored_trees : (float * model_data * Tree.u_tree) Sexpr.t;
     original_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     search_results : search_results;
 }
@@ -2330,12 +2330,12 @@ let to_store_tree ptree =
               | _ -> []) 
       --> List.flatten 
     in
-    (data, ptree.Ptree.tree)
+    (Ptree.get_cost `Adjusted ptree,data, ptree.Ptree.tree)
 
 and from_store_trees orun union =
   let unopted =
     Sexpr.map
-      (fun (lks,tree) ->
+      (fun (_,lks,tree) ->
           let data = 
             List.fold_left
               (fun acc (xs,spec) ->
