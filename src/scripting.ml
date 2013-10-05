@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3561 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3562 $"
 
 let (-->) a b = b a
 
@@ -69,8 +69,7 @@ let get_sizerank () =
   END
 
 
-type model_data =
-  (int list * MlModel.spec) list
+type model_data = (int list * MlModel.spec) list
 
 type ('a, 'b) run = {
     description : string option;
@@ -87,7 +86,7 @@ type ('a, 'b) run = {
     jackknife_store : support_class str_htbl;
     tree_store : ('a, 'b) Ptree.p_tree Sexpr.t str_htbl;
     queue : Sampler.ft_queue;
-    stored_trees : Tree.u_tree Sexpr.t;
+    stored_trees : (model_data * Tree.u_tree) Sexpr.t;
     original_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     search_results : search_results;
 }
@@ -2317,8 +2316,44 @@ let emit_identifier =
     let identifier = ref (-1) in
     (fun () -> incr identifier; "__poy_id_" ^ string_of_int !identifier)
 
+let to_store_tree ptree =
+    let data =
+      Data.categorize_likelihood_chars_by_model_comp ptree.Ptree.data `All
+      --> List.map
+            (function
+              | (hd::_) as lst ->
+                  let m = Data.get_model_opt ptree.Ptree.data hd in
+                  begin match m with
+                    | None   -> []
+                    | Some m -> [(lst,m.MlModel.spec)]
+                  end
+              | _ -> []) 
+      --> List.flatten 
+    in
+    (data, ptree.Ptree.tree)
+
+and from_store_trees orun union =
+  let unopted =
+    Sexpr.map
+      (fun (lks,tree) ->
+          let data = 
+            List.fold_left
+              (fun acc (xs,spec) ->
+                Data.apply_likelihood_model_on_chars acc xs (MlModel.create spec))
+              orun.data
+              lks
+          in
+          { (Ptree.empty data) with Ptree.tree = tree } )
+      orun.stored_trees
+  in
+  let nrun = rediagnose_trees true {orun with trees=unopted; stored_trees=`Empty;} in
+  if union
+    then {orun with trees = Sexpr.union orun.trees nrun.trees; stored_trees=`Empty;}
+    else  nrun
+
+
 let encode_trees print_msg run =
-    Sexpr.union (Sexpr.map (fun x -> x.Ptree.tree) run.trees) run.stored_trees
+  Sexpr.union (Sexpr.map to_store_tree run.trees) run.stored_trees
 
 let toptree data tree = 
     { (Ptree.empty data) with Ptree.tree = tree; }
@@ -3627,33 +3662,19 @@ let rec folder (run : r) meth =
     | `StoreTrees ->
         debugparallel "%d STORE TREES: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         { run with trees = `Empty;
-                   stored_trees = Sexpr.map (fun x -> x.Ptree.tree) run.trees;}
+                   stored_trees = Sexpr.map to_store_tree run.trees;}
     | `UnionTrees ->
         debugparallel "%d UNION TREES: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-        let stored_trees =
-          Sexpr.map (fun x -> {(Ptree.empty run.data) with Ptree.tree=x})
-                    run.stored_trees
-        in
-        if Sexpr.is_empty stored_trees
-            then run
-            else
-              let nrun = 
-                update_trees_to_data true false
-                        {run with trees=stored_trees;stored_trees=`Empty}
-              in
-              {nrun with trees = Sexpr.union nrun.trees run.trees;}
+        from_store_trees run true
     | `UnionStored ->
         debugparallel "%d UNION STORED: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-        let trees = Sexpr.map (fun x -> x.Ptree.tree) run.trees in
+        let trees = Sexpr.map to_store_tree run.trees in
         { run with trees = `Empty;
                    stored_trees = Sexpr.union run.stored_trees trees;}
     | `GetStored ->
         debugparallel "%d GET STORED: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-        let stored_trees =
-          Sexpr.map (fun x ->{(Ptree.empty run.data) with Ptree.tree=x}) run.stored_trees
-        in
-        assert( not (Sexpr.is_empty stored_trees) );
-        update_trees_to_data true false {run with trees=stored_trees;stored_trees=`Empty}
+        assert( not (Sexpr.is_empty run.stored_trees) );
+        from_store_trees run false
     | `OnEachTree (dosomething, mergingscript) ->
         debugparallel "%d ON EACH TREE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         let name = emit_identifier () in

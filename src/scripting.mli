@@ -30,6 +30,8 @@ type search_results = {
     total_ratchet : int;
 }
 
+type model_data = (int list * MlModel.spec) list
+
 type ('a, 'b) run = {
     description : string option;
     trees : ('a, 'b) Ptree.p_tree Sexpr.t;
@@ -45,7 +47,7 @@ type ('a, 'b) run = {
     jackknife_store : support_class str_htbl;
     tree_store : ('a, 'b) Ptree.p_tree Sexpr.t str_htbl;
     queue : Sampler.ft_queue;
-    stored_trees : Tree.u_tree Sexpr.t;
+    stored_trees : (model_data * Tree.u_tree) Sexpr.t;
     original_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     search_results : search_results;
 }
