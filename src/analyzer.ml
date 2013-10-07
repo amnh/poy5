@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3561 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3565 $"
 
 let debug = false
 
@@ -1268,11 +1268,11 @@ let rec linearize2 queue acc =
                     linearize2 (single_queue y.next) nextl;
                     let deps = (remove_all_trees_from_set (List.rev deps)) in
                     let iteml = deps @ remove_trees_from_set (List.rev !iteml)
-                    and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
+                    and nextl = List.rev (`GetStored ::(remove_trees_from_set (List.rev !nextl))) in
                     if l.Methods.parallel then
                         let unique= `UniqueNames l.Methods.keep in
                         let compl = `UnionStored :: List.rev !composerl
-                        and restl = `GetStored :: unique :: []
+                        and restl = unique :: []
                         and fst   = `GetStored::`GatherTrees([],[])::`ClearTrees::`StoreTrees::`AssignTreeNames::!acc
                         and iteml = iteml in
                         let par = match l.Methods.ss with
@@ -2079,11 +2079,7 @@ let rec parallel_analysis mine n (script : Methods.script list) =
             let meth = match meth with
                 | #Methods.input -> [meth;`Barrier]
                 | `ParallelPipeline (a,b,c,d) ->
-                    let d = parallel_analysis mine n d in
-                    let d = match d with
-                        | `GetStored::t -> [`Barrier;`GatherTrees (c,d)]
-                        | _ -> failwith "No GetStored?"
-                    in
+                    let d = [`Barrier;`GatherTrees (c,parallel_analysis mine n d)] in
                     let a = if partition_swap b then 1 else my_part mine n a in
                     [`ParallelPipeline(a,b,c,d)]
                 | (`OnEachTree (_,m)) ->
