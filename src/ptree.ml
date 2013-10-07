@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 3527 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 3564 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -436,6 +436,8 @@ module type SEARCH =
         val default_collapse_function : (a, b) p_tree -> int -> int -> bool
 
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
+        
+        val get_unique_fn : ('a -> Tree.u_tree) -> ('a -> float) -> 'a list -> 'a list
 
         val build_tree_with_names :
             Methods.report_branch option -> (a, b) p_tree -> Tree.Parse.tree_types
@@ -2090,27 +2092,28 @@ let rec compare_trees a b =
         | _, _ -> false)
     in
     compare true (Tree.Parse.strip_tree a) (Tree.Parse.strip_tree b)
-    
-let get_unique trees = match trees with
+ 
+let get_unique_fn get_tree get_cost datas =
+  let build_tree_with_codes tree =
+    basic_build_tree tree (string_of_int) (fun _ _ -> false) None None (fun _ -> "")
+  in
+  match datas with
     | tree :: _ ->
-        let a, _ = Tree.choose_leaf tree.tree in
-        let trees =
+        let a, _ = Tree.choose_leaf (get_tree tree) in
+        let datas =
             List.sort
-                (fun x y ->
-                    Pervasives.compare (get_cost `Adjusted x) (get_cost `Adjusted y))
-                trees
+                (fun x y -> Pervasives.compare (get_cost x) (get_cost y))
+                datas
         in
-        let trees =
+        let datas =
             List.rev_map
-                (fun x ->
-                    x, { x with tree = Tree.cannonize_on_leaf a x.tree })
-                trees
+                (fun x -> x, Tree.cannonize_on_leaf a (get_tree x))
+                datas
         in
-        let trees =
+        let datas =
             List.rev_map
-                (fun (x, y) ->
-                    x,Tree.Parse.cannonic_order (build_tree_with_codes y ""))
-                trees
+                (fun (x, y) -> x,Tree.Parse.cannonic_order (build_tree_with_codes y))
+                datas
         in
         let rec remove_duplicated acc = function
             | (x, y) :: t ->
@@ -2118,8 +2121,11 @@ let get_unique trees = match trees with
                 remove_duplicated (x :: acc) (List.filter are_different t)
             | [] -> acc
         in
-        remove_duplicated [] trees
+        remove_duplicated [] datas
     | x -> x
+
+
+let get_unique = get_unique_fn (fun x -> x.tree) (fun x -> get_cost `Adjusted x)
 
 
 (** [build_tree_with_names tree pd]

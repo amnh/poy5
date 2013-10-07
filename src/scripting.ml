@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3563 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3564 $"
 
 let (-->) a b = b a
 
@@ -86,7 +86,7 @@ type ('a, 'b) run = {
     jackknife_store : support_class str_htbl;
     tree_store : ('a, 'b) Ptree.p_tree Sexpr.t str_htbl;
     queue : Sampler.ft_queue;
-    stored_trees : (float * model_data * Tree.u_tree) Sexpr.t;
+(**)stored_trees : (float * model_data * Tree.u_tree) Sexpr.t;
     original_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     search_results : search_results;
 }
@@ -2068,65 +2068,91 @@ let rec process_tree_handling run meth =
         else match lst with
             | h :: t -> h :: (get_first_n (n - 1) t)
             | [] -> []
+    and variant_cost = function
+      | `P x -> Ptree.get_cost `Adjusted x
+      | `T (c,_,_) -> c
+    and merge_and_sort trees strees = 
+        let lst1 = Sexpr.to_list (Sexpr.map (fun x -> `P x) trees)
+        and lst2 = Sexpr.to_list (Sexpr.map (fun x -> `T x) strees) in
+        let lst = lst1 @ lst2 in
+        List.sort (fun a b -> Pervasives.compare (variant_cost a) (variant_cost b)) lst
+    and get_name t = (get_tree t).Tree.tree_name
+    and get_tree = function
+      | `T (_,_,t) -> t
+      | `P t -> t.Ptree.tree
+    and split_variant_trees t =
+      let rec split (a,b) = function
+        | `P x :: t -> split (x::a,b) t 
+        | `T x :: t -> split (a,x::b) t
+        | []        -> (a,b)
+      in
+      split ([],[]) t
     in
-    let get_optimal = function
-        | (h :: _) as lst ->
-            let cost = Ptree.get_cost `Adjusted h in
-            List.filter (fun x -> cost = Ptree.get_cost `Adjusted x) lst
-        | [] -> []
-    in
-    let trees = match meth with
+    let trees,stored_trees = match meth with
         | `BestN (Some n) ->
-            get_first_n n (sort_trees run.trees)
+            let lst = merge_and_sort run.trees run.stored_trees in
+            split_variant_trees (get_first_n n lst)
         | `BestN None ->
-            let trees = sort_trees run.trees in
-            get_optimal trees
+            let lst = merge_and_sort run.trees run.stored_trees in
+            let optimal = match lst with
+                | h::_ -> variant_cost h
+                | []   -> 0.0
+            in
+            List.filter (fun x -> optimal = (variant_cost x)) lst
+              --> split_variant_trees
         | `BestWithin th ->
-            begin match sort_trees run.trees with
-                | h :: t ->
-                    let cost = th +. (Ptree.get_cost `Adjusted h) in
-                    let t =
-                        List.filter (fun x -> (Ptree.get_cost `Adjusted x) < cost) t
-                    in
-                    (h :: t)
-                | [] -> []
-            end
+            let lst = merge_and_sort run.trees run.stored_trees in
+            let optimalplus = match lst with
+                | h::_ -> th +. (variant_cost h)
+                | []   -> 0.0
+            in
+            List.filter (fun x -> optimalplus < (variant_cost x)) lst
+              --> split_variant_trees
         | `RandomTrees n ->
-            let lst = Sexpr.to_list run.trees in
+            let lst1 = Sexpr.to_list (Sexpr.map (fun x -> `P x) run.trees)
+            and lst2 = Sexpr.to_list (Sexpr.map (fun x -> `T x) run.stored_trees) in
+            let lst = lst1 @ lst2 in
             let arr = Array.of_list lst in
             Array_ops.randomize arr;
             let lst = Array.to_list arr in
-            get_first_n n lst
+            split_variant_trees (get_first_n n lst)
         | `UniqueNames meth ->
             let meth = match meth with
               | `Last -> (fun _ a -> a)
               | `First -> (fun a _ -> a)
               | `Keep_Random -> (fun a b -> if Random.bool () then a else b)
-            and name t = t.Ptree.tree.Tree.tree_name in
-            let cost a = Ptree.get_cost `Adjusted a in
-            run.trees
-              --> Sexpr.to_list
+            in
+            let lst1 = Sexpr.to_list (Sexpr.map (fun x -> `P x) run.trees)
+            and lst2 = Sexpr.to_list (Sexpr.map (fun x -> `T x) run.stored_trees) in
+            let lst = lst1 @ lst2 in
+            lst
               --> List.fold_left
                     (fun acc xt ->
-                      let x = name xt in
-                      if StringOptMap.mem x acc then
-                        let yt = StringOptMap.find x acc in
-                        if (cost xt) < (cost yt) then
-                          acc
-                        else if (cost xt) = (cost yt) then
-                          StringOptMap.add x (meth xt yt) acc
-                        else
-                          StringOptMap.add x yt acc
-                      else
-                        StringOptMap.add x xt acc)
-                    StringOptMap.empty
+                        let x = get_name xt in
+                        if StringOptMap.mem x acc then
+                            let yt = StringOptMap.find x acc in
+                            if (variant_cost xt) < (variant_cost yt) then
+                              acc
+                            else if (variant_cost xt) = (variant_cost yt) then
+                              StringOptMap.add x (meth xt yt) acc
+                            else
+                              StringOptMap.add x yt acc
+                          else
+                            StringOptMap.add x xt acc)
+                        StringOptMap.empty
               --> StringOptMap.bindings
               --> List.map snd
+              --> split_variant_trees
         | `Unique ->
-            TS.get_unique (Sexpr.to_list run.trees)
+            let lst1 = Sexpr.to_list (Sexpr.map (fun x -> `P x) run.trees)
+            and lst2 = Sexpr.to_list (Sexpr.map (fun x -> `T x) run.stored_trees) in
+            let lst = lst1 @ lst2 in
+            lst
+              --> TS.get_unique_fn (get_tree) (variant_cost)
+              --> split_variant_trees
     in
-    let trees = Sexpr.of_list trees in
-    { run with trees = trees }
+    { run with trees = Sexpr.of_list trees;
+               stored_trees = Sexpr.of_list stored_trees; }
 
 exception Error_in_Script of (exn * r)
 

@@ -384,6 +384,8 @@ module type SEARCH = sig
     val default_collapse_function : (a, b) p_tree -> int -> int -> bool
 
     val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
+    
+    val get_unique_fn : ('a -> Tree.u_tree) -> ('a -> float) -> 'a list -> 'a list
 
     val build_tree_with_names :
         Methods.report_branch option -> (a, b) p_tree -> Tree.Parse.tree_types
