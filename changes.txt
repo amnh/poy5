@@ -6,6 +6,7 @@ New Features:
     result in better performance of parallel execution.
   - swap(parallel) command, see below.
   - OPAM distribution via our github repo and basic_builder.sh
+  - Added initial level transformation of Aminoacid characters (during read).
 
 Bugs Fixed:
   - Reading morphology under Nexus had errors in processing SYMBOLS.
