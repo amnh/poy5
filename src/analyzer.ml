@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3565 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3567 $"
 
 let debug = false
 
@@ -1067,8 +1067,7 @@ let simplify_store_set script =
             items, false, (if has_it then Some name else current_name)
     in
     let stored_items = ref All_sets.Strings.empty in
-    let rec remove_useless ((treestate, datastate) as acc) (list :
-        Methods.script list) =
+    let rec remove_useless ((treestate, datastate) as acc) (list : Methods.script list) =
         match list with
         | [] -> [], acc, false
         | h :: t ->
@@ -1247,8 +1246,7 @@ let rec linearize2 queue acc =
                     linearize2 (single_queue y.next) nextl;
                     let todol = deps @ remove_trees_from_set (List.rev !todol)
                     and nextl = `GetStored::remove_trees_from_set (List.rev !nextl) 
-                    and composerl = 
-                        `UnionStored::remove_trees_from_set (List.rev !composerl)
+                    and composerl = `UnionStored::remove_trees_from_set (List.rev !composerl)
                     in
                     acc := 
                         `Store (all_dependencies, my_name) ::
@@ -1268,12 +1266,13 @@ let rec linearize2 queue acc =
                     linearize2 (single_queue y.next) nextl;
                     let deps = (remove_all_trees_from_set (List.rev deps)) in
                     let iteml = deps @ remove_trees_from_set (List.rev !iteml)
-                    and nextl = List.rev (`GetStored ::(remove_trees_from_set (List.rev !nextl))) in
+                    and nextl = List.rev (remove_trees_from_set (List.rev !nextl)) in
                     if l.Methods.parallel then
                         let unique= `UniqueNames l.Methods.keep in
                         let compl = `UnionStored :: List.rev !composerl
                         and restl = unique :: []
                         and fst   = `GetStored::`GatherTrees([],[])::`ClearTrees::`StoreTrees::`AssignTreeNames::!acc
+                        and nextl = nextl @ [`UnionTrees]
                         and iteml = iteml in
                         let par = match l.Methods.ss with
                             | `None | `SingleNeighborhood _ ->
