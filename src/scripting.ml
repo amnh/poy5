@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3564 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3566 $"
 
 let (-->) a b = b a
 
@@ -1546,12 +1546,23 @@ let load_data (meth : Methods.input) data nodes =
                 if init3D then Alphabet.aminoacids_use_3d
                           else Alphabet.aminoacids
             in
-            let alphabet, (twod_full,twod_original,matrix),threed =
+            let alpha, (twod_full,twod_original,matrix),threed =
                 try match List.find (function | `Level _ -> true | _ -> false) read_options with
                     | `Level (x,y) ->
-                        Status.user_message Status.Error "I@ am@ ignoring@ the@ Level@ argument";
-                        raise Not_found
-                    | _            -> assert false
+                        let all =
+                          Cost_matrix.Two_D.get_all_elements
+                            Cost_matrix.Two_D.default_aminoacids
+                        in
+                        let aa_cm_full =
+                          Cost_matrix.Two_D.default_aminoacids
+                            --> Cost_matrix.Two_D.clone
+                            --> (fun c ->
+                                  Cost_matrix.Two_D.create_cm_by_level c x 1 all y)
+                        and alpha = Alphabet.create_alph_by_level alpha x 1 in
+                        alpha,
+                          (aa_cm_full,Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
+                            (Lazy.force Cost_matrix.Three_D.default_aminoacids)
+                    | _            -> raise Not_found
                 with | Not_found   ->
                     alpha,(Cost_matrix.Two_D.default_aminoacids,
                             Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
