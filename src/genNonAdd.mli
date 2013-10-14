@@ -50,8 +50,9 @@ val median :
     Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence * float
 
 (** [median_3_fake h parent mine child1 child2] *)
-val median_3_fake : Cost_matrix.Two_D.m -> gnonadd_sequence -> gnonadd_sequence ->
-    gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence
+val median_3_fake : Alphabet.a -> Cost_matrix.Two_D.m -> gnonadd_sequence ->
+    gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence -> gnonadd_sequence * float
+
 
 (** [median_3 h parent mine child1 child2] return a new median3 for mine
 * with info from parent,child1 and child2 *)

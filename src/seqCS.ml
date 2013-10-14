@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3547 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3569 $"
 
 let debug = false
 let debug_distance = false
@@ -2062,8 +2062,8 @@ let readjust_custom_alphabet alph mode to_adjust modified ch1 ch2 parent mine =
     let use_ukk = false in (*we don't call ukkonen alignment for custom alphabet now*)
     (*list of character code that being modified in DOS.[readjust_custom_alphabet] *)
     let new_modified = ref [] in
-    let total_cost = ref 0 in (*sum cost of each characters: node cost*)
-    let total_sum_cost = ref 0 in (*sum sum_cost of each characters: subtree cost*)
+    let total_cost = ref 0.0 in (*sum cost of each characters: node cost*)
+    let total_sum_cost = ref 0.0 in (*sum sum_cost of each characters: subtree cost*)
     let adjusted =
         Array_ops.map_5
             (fun code a b c d ->
@@ -2074,36 +2074,39 @@ let readjust_custom_alphabet alph mode to_adjust modified ch1 ch2 parent mine =
                 match a, b, c, d with
                 | Heuristic_Selection a, Heuristic_Selection b,
                     Heuristic_Selection c, ((Heuristic_Selection d) as e) when skip_it ->
-                        let cost2 = int_of_float d.DOS.costs.cost2
-                        and scost = int_of_float d.DOS.costs.sum_cost in
-                        total_cost := cost2 + !total_cost;
-                        total_sum_cost := scost + !total_sum_cost;
+                        let cost2 = d.DOS.costs.cost2
+                        and scost = d.DOS.costs.sum_cost in
+                        total_cost := cost2 +. !total_cost;
+                        total_sum_cost := scost +. !total_sum_cost;
                         e
                 | Heuristic_Selection a, Heuristic_Selection b,
                     Heuristic_Selection c, Heuristic_Selection d ->
                         let changed, res, cost3, cost2, sumcost =
                             DOS.readjust alph mode mine.heuristic a b c d use_ukk true
                         in
+                        let cost2,sumcost = float_of_int cost2,float_of_int sumcost in
                         if changed then
                             new_modified := code :: !new_modified;
                         (*even nothing changed, we still need to add up the cost
                         * here, for we replace total_cost with this sum of cost2
                         * at the end of this function*)
-                        total_cost := cost2 + !total_cost;
-                        total_sum_cost := sumcost + !total_sum_cost;
+                        total_cost := cost2 +. !total_cost;
+                        total_sum_cost := sumcost +. !total_sum_cost;
                         Heuristic_Selection res
                 | General_Prealigned a, General_Prealigned b,
                     General_Prealigned c, ((General_Prealigned d) as e) when skip_it ->
-                        let cost = int_of_float d.GenNonAdd.costs.GenNonAdd.min in
-                        total_cost := cost + !total_cost;
-                        total_sum_cost := cost + !total_sum_cost;
+                        let cost = d.GenNonAdd.costs.GenNonAdd.min in
+                        total_cost := cost +. !total_cost;
+                        total_sum_cost := cost +. !total_sum_cost;
                         e
                 | General_Prealigned a, General_Prealigned b,
                     General_Prealigned c, General_Prealigned d ->
-                        let seq = GenNonAdd.median_3_fake mine.heuristic.c2_full d a b c in
-                        let cost = int_of_float seq.GenNonAdd.costs.GenNonAdd.min in
-                        total_cost := cost + !total_cost;
-                        total_sum_cost := cost + !total_sum_cost;
+                        let seq,cost =
+                            GenNonAdd.median_3_fake alph mine.heuristic.c2_full d a b c
+                          (* GenNonAdd.median_3 mine.heuristic.c3 mine.heuristic.c2_full d a b c *)
+                        in
+                        total_cost := cost +. !total_cost;
+                        total_sum_cost := cost +. !total_sum_cost;
                         General_Prealigned seq
                 | w,_,_,_ -> w)
             mine.codes
@@ -2113,18 +2116,16 @@ let readjust_custom_alphabet alph mode to_adjust modified ch1 ch2 parent mine =
             mine.characters
     in
     if debug then
-        Printf.printf "nodecost=%d(%f),subtree cost=%d(%f),return to node.ml\n%!"
+        Printf.printf "nodecost=%f(%f),subtree cost=%f(%f),return to node.ml\n%!"
                     !total_cost mine.total_cost !total_sum_cost mine.subtree_cost;
     let modified =
         List.fold_left (fun acc x -> All_sets.Integers.add x acc)
                        modified !new_modified
     in
-    let total_cost = float_of_int !total_cost in
-    let total_sum_cost = float_of_int !total_sum_cost in
-    modified, total_cost, total_sum_cost,
+    modified, !total_cost, !total_sum_cost,
         { mine with
-            characters = adjusted; total_cost = total_cost;
-            subtree_cost = total_sum_cost; }
+            characters = adjusted; total_cost = !total_cost;
+            subtree_cost = !total_sum_cost; }
 
 (** [readjust ch1 ch2 par mine] returns a tuple [(a, b)], where [b] is the 
     set of sequences generated from (heuristically) readjusting [mine] to 
@@ -2283,7 +2284,7 @@ let median_3 p n c1 c2 =
             | `Algn_Newkk  -> true
             | `Algn_Normal -> false
         in
-        generic_map_4 DOS.median_3_no_union GenNonAdd.median_3_fake
+        generic_map_4 DOS.median_3_no_union (GenNonAdd.median_3 cm3)
                 p.characters n.characters c1.characters c2.characters cm2 cm2 use_ukk
     in
     (* A function to calculate the uppass values if the alphabet does handle
@@ -2330,7 +2331,12 @@ let distance missing_distance a b =
             | Partitioned a, Partitioned b ->
                 acc +. float_of_int (PartitionedDOS.distance alph h missing_distance a b use_ukk)
             | General_Prealigned a, General_Prealigned b ->
-                acc +. (GenNonAdd.distance a b h.c2_original)
+                let added = GenNonAdd.distance a b h.c2_original in
+(*                 Printf.printf "\tA: %s\n\tB: %s\n\tCOST: %f\n%!" *)
+(*                   (Sequence.to_formater a.GenNonAdd.seq alph)
+        *                   (Sequence.to_formater b.GenNonAdd.seq alph) added;
+        *                   *)
+                acc +. added
             | Heuristic_Selection a, Heuristic_Selection b ->
                 acc +. float_of_int (DOS.distance alph h missing_distance a b use_ukk) 
             | Partitioned _, _

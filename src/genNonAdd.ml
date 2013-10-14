@@ -155,13 +155,7 @@ let median cost_mat a b =
     let dis, medseq = get_distance a b cost_mat in
     {seq = medseq; costs = make_cost dis; weights = a.weights},dis
 
-(*when there is no 3d matrix, what do we do for median3 function? 
-*  we align both child and parent, then return the better one *)
-let median_3_fake cost_mat parent mine child1 child2 =
-    let medpc1,dist1 = median cost_mat parent child1 in
-    let medpc2,dist2 = median cost_mat parent child2 in
-    if dist1<dist2 then medpc1 else medpc2
-    
+
 (* [median_3] determine the cost of aligning the three sequences *)
 let median_3 cost_mat3 cost_mat2 parent mine child1 child2 =
     let dis, medseq = get_distance_3d parent child1 child2 cost_mat3 cost_mat2 in
@@ -190,6 +184,7 @@ let get_closest_code alph cost_mat code1 code2 =
     in
     bestc2
 
+
 (**[to_single alph cost_mat parent mine] return single assignment of mine based
 * on parent. return cost between parent and new single*)
 let to_single alph cost_mat parent mine =
@@ -209,6 +204,50 @@ let to_single alph cost_mat parent mine =
         let newsingle = { mine with seq = Sequence.of_array arrclosest } in
         let cst = distance parent newsingle cost_mat in
         newsingle, cst
+
+(*when there is no 3d matrix, what do we do for median3 function? 
+*  we align both child and parent, then return the better one *)
+let median_3_fake alph m s1 s0 s2 s3 =
+    let algn    s1 s2 = median  m s1 s2
+    and closest s1 s2 = to_single alph m s1 s2
+    and is_empty s1 m = is_empty s1.seq m in
+    let make_center_with_missing a b : float * (gnonadd_sequence * float) * float =
+        let sab, cab = algn a b in
+        cab,(sab,0.0),cab
+    and make_center s1 s2 s3 : float * (gnonadd_sequence * float) * float =
+            (* first median  *)
+        let s12, c12 = algn s1 s2 
+        and s23, c23 = algn s2 s3 
+        and s13, c13 = algn s1 s3 in
+            (* second median *)
+        let s123, c123 = algn s12 s3
+        and s231, c231 = algn s23 s1
+        and s132, c132 = algn s13 s2 in
+            (* sum costs *)
+        let c123 = c123 +. c12
+        and c231 = c231 +. c23
+        and c132 = c132 +. c13 in
+            (* determine best... *)
+        if c123 <= c231 then
+            if c123 <= c132
+                then c123, closest s3 s12, c123
+                else c132, closest s2 s13, c123
+        else if c231 < c132
+            then c231, closest s1 s23, c123
+            else c132, closest s2 s13, c123
+    in
+    let cst, (s, _), previous =
+        match (is_empty s1 m), (is_empty s2 m), (is_empty s3 m) with
+        | true, true, true  -> 0.0, (s1,0.0), 0.0
+        | false, true, true -> 0.0, (s1,0.0), 0.0
+        | true, false, true -> 0.0, (s2,0.0), 0.0
+        | true, true, false -> 0.0, (s3,0.0), 0.0
+        | false,false,true  -> make_center_with_missing s1 s2
+        | false,true,false  -> make_center_with_missing s1 s3
+        | true,false,false  -> make_center_with_missing s2 s3
+        | false,false,false -> make_center s1 s2 s3
+    in
+  s,cst
 
 let compare a b =
     Sequence.compare a.seq b.seq
