@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3488 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3571 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -1114,14 +1114,16 @@ module Two_D = struct
         done;
         !res
 
-    let input_is_metric l w =
+    let input_is_metric suppress l w =
         let arr = list_to_matrix l w in
         let ispos = is_positive arr
         and issym = is_symmetric arr 
         and iside = input_is_identity arr in
         assert( ispos );
         let res = ispos && issym && iside  in
-        if (res) then ()
+        (* This is annoying, and may confuse users
+        if res || suppress then
+          ()
         else
             begin
                 for i = 0 to w - 1 do
@@ -1132,6 +1134,7 @@ module Two_D = struct
                     print_newline();
                 done;
             end;
+          *)
          res, iside
 
     let fill_cost_matrix ?(create_original=false) ?(tie_breaker=`First)
@@ -1145,11 +1148,12 @@ module Two_D = struct
         (* if not suppress then
             Status.user_message Status.Warning 
                 ("This@ operation@ may@ require@ large@ amounts@ of@ memory"); *)
-        assert(num_comb>0);
+        assert( num_comb > 0 );
         let num_withgap = calc_num_of_comb_with_gap pure_a_sz level in
         let num_comb,num_withgap = 
-            if pure_a_sz<>a_sz then num_comb+1,num_withgap+1
-            else num_comb,num_withgap
+            if pure_a_sz<>a_sz
+                then num_comb+1,num_withgap+1
+                else num_comb,num_withgap
         in
         let tb =  match tie_breaker with
             | `Keep_Random -> 0
@@ -1160,9 +1164,9 @@ module Two_D = struct
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
                    use_gap_opening all_elements level num_comb (num_comb-num_withgap+1) tb
         in
-        let (uselevel:bool) = if level>1 then true else false  in
+        let uselevel = level > 1 in
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
-        let ismetric, iside = input_is_metric l a_sz in
+        let ismetric, iside = input_is_metric suppress l a_sz in
         if iside then set_identity m;
         if use_comb then 
             if ismetric then
@@ -1331,9 +1335,6 @@ module Two_D = struct
         ] 21
 
     let of_transformations_and_gaps use_combinations alph_size trans gaps all_elements =
-        let debug = false in
-        if debug then Printf.printf "of_transformations_and_gaps (%d,%d,%d,%d)\n%!"
-        alph_size trans gaps all_elements;
         let list_with_zero_in_position pos =
             Array.to_list
             (Array.init alph_size (fun x ->
@@ -1342,9 +1343,9 @@ module Two_D = struct
                 else if pos = alph_size - 1 then gaps
                 else trans))
         in
-        of_list ~use_comb:use_combinations (Array.to_list 
-        (Array.init alph_size (fun x ->
-            list_with_zero_in_position x))) all_elements
+        of_list ~use_comb:use_combinations
+                (Array.to_list (Array.init alph_size (fun x -> list_with_zero_in_position x)))
+                all_elements
 
     let perturbe cm sev prob =
         let cm = clone cm in
