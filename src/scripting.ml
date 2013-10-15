@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3570 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3573 $"
 
 let (-->) a b = b a
 
@@ -3767,10 +3767,11 @@ let rec folder (run : r) meth =
             Sexpr.fold_status
                 "Running pipeline on each tree" ~eta
                 (on_each_tree folder (`Set ([`Data], name)) dosomething mergingscript)
-                run
+                {run with trees = `Empty;}
                 run.trees
         in
         let run = folder run (`Discard ([`Data], name)) in
+        debugparallel "%d ON EACH TREE DONE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         run
     | `ParallelPipeline (times, todo, composer, continue) ->
         debugparallel "%d PARALLEL: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
@@ -3842,8 +3843,7 @@ let rec folder (run : r) meth =
                     let (run, untransforms) = temporary_transforms trans run in
                     let trees = do_search run in
                     let run = { run with trees = trees } in
-                    let run = List.fold_left (fun r f -> f r) run untransforms in
-                    { run with trees = run.trees }
+                    List.fold_left (fun r f -> f r) run untransforms
                 | trans ->
                     let runs = explode_trees run in
                     let runs =
@@ -4473,6 +4473,7 @@ END
                 Status.user_message fo "@]\n%!";
                 run
             | `Trees (ic, filename) ->
+                debugparallel "%d REPORT: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
                 let rec remove_style acc = function
                     | [] -> acc
                     | `NexusStyle :: tl 
