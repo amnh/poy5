@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3561 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3570 $"
 
 exception TimedOut
 
@@ -87,6 +87,7 @@ type read_option_t = [
     | `Level of int * keep_method
     | `Tie_Breaker of keep_method
     | `Affine of int
+    | `Tcm of int * int
 ]
 
 type prealigned_costs = [

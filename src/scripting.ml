@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3566 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3570 $"
 
 let (-->) a b = b a
 
@@ -1547,23 +1547,64 @@ let load_data (meth : Methods.input) data nodes =
                           else Alphabet.aminoacids
             in
             let alpha, (twod_full,twod_original,matrix),threed =
-                try match List.find (function | `Level _ -> true | _ -> false) read_options with
-                    | `Level (x,y) ->
-                        let all =
-                          Cost_matrix.Two_D.get_all_elements
-                            Cost_matrix.Two_D.default_aminoacids
-                        in
-                        let aa_cm_full =
+                let level =
+                  try match List.find (function | `Level _ -> true | _ -> false) read_options with
+                      | `Level (x,y) -> Some (x,y)
+                      | _ -> raise Not_found
+                  with | Not_found -> None
+                and cmf = 
+                  try match List.find (function | `CostMatrix _ -> true | _ -> false) read_options with
+                      | `CostMatrix f -> Some f
+                      | _ -> raise Not_found
+                  with | Not_found -> None
+                and tcm = 
+                  try match List.find (function | `Tcm _ -> true | _ -> false) read_options with
+                      | `Tcm (x,y) -> Some (x,y)
+                      | _ -> raise Not_found
+                  with | Not_found -> None
+                and get_name = function
+                  | `Local x | `Remote x -> x
+                in
+                match level,cmf,tcm with
+                  | _, Some _, Some _     -> failwith "Ambiguous Cost Matrix Arguments"
+                  | None, None, Some (a,b) ->
+                      let all = Cost_matrix.Two_D.get_all_elements Cost_matrix.Two_D.default_aminoacids in
+                      let aa_cm_full,aa_cm_orig =
+                          Cost_matrix.Two_D.of_transformations_and_gaps false (Alphabet.size alpha) a b all
+                      in
+                      let three_d = match init3D with
+                        | true  -> Cost_matrix.Three_D.of_two_dim aa_cm_full
+                        | false -> Cost_matrix.Three_D.default_nucleotides 
+                      and definition = Data.Substitution_Indel (a,b) in
+                      alpha, (aa_cm_full,aa_cm_orig,definition), three_d
+                  | Some (x,y),None,Some (a,b) ->
+                      let all = Cost_matrix.Two_D.get_all_elements Cost_matrix.Two_D.default_aminoacids in
+                      let aa_cm_full,aa_cm_orig =
+                          Cost_matrix.Two_D.of_transformations_and_gaps false (Alphabet.size alpha) a b all
+                          --> (fun (c,o) -> Cost_matrix.Two_D.create_cm_by_level c x 1 all y, o)
+                      and alpha = Alphabet.create_alph_by_level alpha x 1 in
+                      let three_d = match init3D with
+                        | true  -> Cost_matrix.Three_D.of_two_dim aa_cm_full
+                        | false -> Cost_matrix.Three_D.default_nucleotides 
+                      and definition = Data.Level (Data.Substitution_Indel (a,b),x) in
+                      alpha, (aa_cm_full,aa_cm_orig,definition), three_d
+                  | Some (x,y),None,None ->
+                      let all = Cost_matrix.Two_D.get_all_elements Cost_matrix.Two_D.default_aminoacids in
+                      let aa_cm_full =
                           Cost_matrix.Two_D.default_aminoacids
                             --> Cost_matrix.Two_D.clone
-                            --> (fun c ->
-                                  Cost_matrix.Two_D.create_cm_by_level c x 1 all y)
-                        and alpha = Alphabet.create_alph_by_level alpha x 1 in
-                        alpha,
-                          (aa_cm_full,Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
-                            (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                    | _            -> raise Not_found
-                with | Not_found   ->
+                            --> (fun c -> Cost_matrix.Two_D.create_cm_by_level c x 1 all y)
+                      and alpha = Alphabet.create_alph_by_level alpha x 1 in
+                      alpha,
+                        (aa_cm_full,Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
+                          (Lazy.force Cost_matrix.Three_D.default_aminoacids)
+                  | Some (x,y),Some f,None ->
+                      let a,(m2,m1,m0),m3 = Alphabet.of_file f false init3D x false y in
+                      a,(m2,m1,(Data.Input_file (get_name f,m0))), m3
+                  | None, Some f,None ->
+                      let a,(m2,m1,m0),m3 = Alphabet.of_file f false init3D 2 false `First in
+                      a,(m2,m1,(Data.Input_file (get_name f,m0))), m3
+                  | None, None,None -> 
                     alpha,(Cost_matrix.Two_D.default_aminoacids,
                             Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
                         (Lazy.force Cost_matrix.Three_D.default_aminoacids)

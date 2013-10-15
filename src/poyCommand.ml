@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3530 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3570 $"
 
 let debug = false 
 
@@ -31,6 +31,7 @@ type read_option_t = [
     | `Level of int * Methods.keep_method
     | `Tie_Breaker of Methods.keep_method
     | `Affine of int
+    | `Tcm of int * int
 ]
 
 type otherfiles = [
@@ -1088,6 +1089,7 @@ type command = [
              | `Init3D _
              | `Tie_Breaker _
              | `Affine _
+             | `Tcm _
              | `Orientation _) as a -> (ss,cm,a::ro)
             | (`CostMatrix x) ->
                 begin match cm with
@@ -2015,19 +2017,30 @@ type command = [
                         right_parenthesis -> match a with
                             | `GeneralAlphabetSeq (a,_,_) ->
                                 begin match b with
-                                    | Some (`Assign_Transformation_Cost_Matrix (f,_)) ->
-                                        let oth = match c with
-                                            | None   -> [`Prealigned]
-                                            | Some c -> [`Prealigned;c]
+                                    | Some (`Assign_Transformation_Cost_Matrix (f,x)) ->
+                                        let oth = match c,x with
+                                            | None,None   -> [`Prealigned]
+                                            | Some x,None -> [`Prealigned; x]
+                                            | None,Some (x,y) -> [`Prealigned;`Level (x,y)]
+                                            | Some _,Some _ -> failwith "I@ found@ conflicting@ level@ arguments."
                                         in
                                         ((`GeneralAlphabetSeq (a,f,oth)) :> Methods.input)
-                                    | Some ( `Create_Transformation_Cost_Matrix _)
+                                    | Some (`Create_Transformation_Cost_Matrix _)
                                     | None -> failwith "I@ require@ an@ explicit@ cost@ matrix@ for@ custom@ alphabet@ characters."
                                 end
                             | `Aminoacids (f,o) ->
                                 let x : Methods.read_option_t list = match c with
                                     | None   -> o
                                     | Some c -> c::o
+                                in
+                                let x = match b with
+                                  | None -> x
+                                  | Some (`Assign_Transformation_Cost_Matrix (f,Some (a,b))) ->
+                                      (`CostMatrix f)::(`Level (a,b))::x
+                                  | Some (`Assign_Transformation_Cost_Matrix (f,_)) ->
+                                      (`CostMatrix f)::x
+                                  | Some (`Create_Transformation_Cost_Matrix (a,b)) ->
+                                      (`Tcm (a,b))::x
                                 in
                                 ((`Aminoacids (f,x)) :> Methods.input)
                             | _ ->

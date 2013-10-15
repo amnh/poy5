@@ -5,11 +5,13 @@ New Features:
   - Script Analyzer has some resolutions for parallel analysis that should
     result in better performance of parallel execution.
   - swap(parallel) command, see below.
-  - OPAM distribution via our github repo and basic_builder.sh
-  - Added initial level transformation of Aminoacid characters (during read).
+  - OPAM distribution via our github repo and basic_builder.sh. Please see our
+    opam-amnh repo (http://github.com/amnh/opam-amnh)
+  - Added initial level transformation of Aminoacid characters (during read);
+    previously we reported this option was being ignored.
 
 Bugs Fixed:
-  - Reading morphology under Nexus had errors in processing SYMBOLS.
+  - Reading morphology under Nexus had errors in processing SYMBOLS tag.
   - Reading Nexus files with single quoted taxa-names failed.
   - Parsering issue for trees with branch lengths in scientific notation and a
     plus sign in their exponent, 1.0e+09. Now accept '+' symbol. (Thanks Cyrille)
@@ -19,12 +21,15 @@ Bugs Fixed:
   - Correctly implemented the prealigned amino-acid characters to accept
     resampling support techniques (jackkknife and bootstrap).
   - Minor issues with basic_builder.sh with install and ./configure with parmap
+  - Certain level arguments were ignored since there are multiple ways to assign
+    level arguments, through the cost matrix assignment, or as an additional
+    argument (aminoacids and custom alphabet characters only).
 
 New Commands (see manual for full explanations):
   - Added documentation for commands in swap/build at_random, first, last. These
     control how trees of the same cost are selected in the search/build. The
     default is last, that is, the tree in memory is always replaced by the
-    newest found.
+    newest found during a search/swap/build/fuse.
   - swap(parallel) will swap in parallel a particular tree. This will allow
     large trees that require a lot of computation (dynamic likelihood) to be
     parallelized when a small number of trees are being analyzed. For example,
