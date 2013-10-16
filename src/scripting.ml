@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3582 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3587 $"
 
 let (-->) a b = b a
 
@@ -3751,7 +3751,6 @@ let rec folder (run : r) meth =
                    stored_trees = Sexpr.union run.stored_trees trees;}
     | `GetStored ->
         debugparallel "%d GET STORED: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-        assert( not (Sexpr.is_empty run.stored_trees) );
         from_store_trees run false
     | `OnEachTree (dosomething, mergingscript) ->
         debugparallel "%d ON EACH TREE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
