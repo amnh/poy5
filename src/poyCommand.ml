@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3572 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3575 $"
 
 let debug = false 
 
@@ -2129,7 +2129,9 @@ type command = [
                 [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
                 [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
                 [LIDENT "tcm"; ":"; left_parenthesis; x = INT;",";y=INT; right_parenthesis ->
-                    `Tcm (int_of_string x,int_of_string y) ] |
+                  `Tcm (int_of_string x,int_of_string y) ] |
+                [LIDENT "tcm"; ":"; left_parenthesis; tcm = STRING; right_parenthesis ->
+                  `CostMatrix (`Local tcm) ] |
                 [LIDENT "tcm"; ":"; tcm = STRING -> `CostMatrix (`Local tcm) ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
                 [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
