@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3572 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3582 $"
 
 let debug = false 
 
@@ -31,7 +31,7 @@ type read_option_t = [
     | `Level of int * Methods.keep_method
     | `Tie_Breaker of Methods.keep_method
     | `Affine of int
-    | `Tcm of int * int
+    | `TcmArg of int * int
 ]
 
 type otherfiles = [
@@ -1089,7 +1089,7 @@ type command = [
              | `Init3D _
              | `Tie_Breaker _
              | `Affine _
-             | `Tcm _
+             | `TcmArg _
              | `Orientation _) as a -> (ss,cm,a::ro)
             | (`CostMatrix x) ->
                 begin match cm with
@@ -1098,7 +1098,7 @@ type command = [
                 end
             | (`InputFile x) -> (x::ss, cm, ro)
         in
-        List.fold_left organize_data ([],None,[]) lst
+        List.fold_left organize_data ([],None,[]) (List.flatten lst)
 
     let transform_stdsearch items = 
         `StandardSearch 
@@ -1311,8 +1311,7 @@ type command = [
                 ];
             level_and_tiebreaker :
                 [
-                    [ left_parenthesis; x = INT; ","; y = keep_method; right_parenthesis
-                    ->(int_of_string x,y) ]|
+                    [ left_parenthesis; x = INT; ","; y = keep_method; right_parenthesis ->(int_of_string x,y) ]|
                     [ x=INT -> (int_of_string x,`First) ]
                 ];
             transform_method:
@@ -2040,7 +2039,7 @@ type command = [
                                   | Some (`Assign_Transformation_Cost_Matrix (f,_)) ->
                                       (`CostMatrix f)::x
                                   | Some (`Create_Transformation_Cost_Matrix (a,b)) ->
-                                      (`Tcm (a,b))::x
+                                      (`TcmArg (a,b))::x
                                 in
                                 ((`Aminoacids (f,x)) :> Methods.input)
                             | _ ->
@@ -2086,24 +2085,19 @@ type command = [
                 [ LIDENT "genome"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Genome (to_local a) ] |
-                [ LIDENT "aminoacid"; ":"; left_parenthesis; 
+                [ LIDENT "aminoacid"; ":"; left_parenthesis;
                     a = LIST1 [x = read_optiona -> x] SEP ","; right_parenthesis ->
-                        let files,options : read_option_t list * read_option_t list = 
-                            List.partition (function `InputFile _ -> true | _  -> false) a
-                        in
-                        let files = 
-                            List.map (function `InputFile x -> x | _ -> assert false) files
-                        in
+                        let files,options : read_option_t list * read_option_t list =
+                            List.partition (function `InputFile _ -> true | _  -> false)
+                                           (List.flatten a) in
+                        let files = List.map (function `InputFile x -> x | _ -> assert false) files in
                         (`Aminoacids (files,options) :> Methods.simple_input)] |
-                [ LIDENT "aminoacids"; ":"; left_parenthesis; 
+                [ LIDENT "aminoacids"; ":"; left_parenthesis;
                     a = LIST1 [x = read_optiona -> x] SEP ","; right_parenthesis ->
-                        let files,options : read_option_t list * read_option_t list = 
-                            List.partition
-                                (function `InputFile _ -> true | _ -> false) a
-                        in
-                        let files =
-                            List.map (function `InputFile x -> x | _ -> assert false) files
-                        in
+                        let files,options : read_option_t list * read_option_t list =
+                            List.partition (function `InputFile _ -> true | _ -> false)
+                                           (List.flatten a) in
+                        let files = List.map (function `InputFile x -> x | _ -> assert false) files in
                         (`Aminoacids (files,options) :> Methods.simple_input) ] |
                 [ LIDENT "custom_alphabet"; ":"; left_parenthesis;
                     a = LIST0 [x = read_optiona -> x] SEP ","; right_parenthesis ->
@@ -2121,19 +2115,24 @@ type command = [
                         end ] |
                 [ LIDENT "complex"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
-                        `ComplexTerminals (to_local a) ] 
+                        `ComplexTerminals (to_local a) ]
             ];
         read_optiona:
             [
-                [ x = STRING -> `InputFile (`Local x) ] |
-                [LIDENT "init3D"; ":"; init3D = boolean -> `Init3D init3D] |
-                [LIDENT "orientation"; ":"; ori = boolean -> `Orientation ori] |
-                [LIDENT "tcm"; ":"; left_parenthesis; x = INT;",";y=INT; right_parenthesis ->
-                    `Tcm (int_of_string x,int_of_string y) ] |
-                [LIDENT "tcm"; ":"; tcm = STRING -> `CostMatrix (`Local tcm) ] |
-                [LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
-                [LIDENT "tie_breaker"; ":"; x = keep_method -> `Tie_Breaker x] |
-                [LIDENT "gap_opening"; ":"; x = INT -> `Affine (int_of_string x) ]
+                [ x = STRING -> [`InputFile (`Local x)] ] |
+                [LIDENT "init3D"; ":"; init3D = boolean -> [`Init3D init3D]] |
+                [LIDENT "orientation"; ":"; ori = boolean -> [`Orientation ori]] |
+                [LIDENT "tcm"; ":"; left_parenthesis; tcm = tcm_arguments; right_parenthesis ->
+                  begin match tcm with
+                    | `Gap (a,b)      -> [`TcmArg (a,b)]
+                    | `Tcm (x,Some (y,z)) -> [`CostMatrix (`Local x);`Level (y,z)]
+                    | `Tcm (x,None)   -> [`CostMatrix (`Local x)]
+                    | _               -> assert false
+                  end
+                ] |
+                [LIDENT "level"; ":"; x = level_and_tiebreaker -> [`Level x]] |
+                [LIDENT "tie_breaker"; ":"; x = keep_method -> [`Tie_Breaker x]] |
+                [LIDENT "gap_opening"; ":"; x = INT -> [`Affine (int_of_string x)]]
             ];
         tree_information_list:
             [   
