@@ -5473,6 +5473,7 @@ let assign_tcm_to_characters data chars foname tcm newalph =
 
 let assign_tcm_to_characters_from_file data chars file =
     let default_km = `Keep_Random in
+    let previous_members = Hashtbl.create 17 in
     let transform_characters old_data old_alphabet old_state old_tcm = 
         let orientation =  match old_state with
             | `Breakinv -> true
@@ -5523,13 +5524,12 @@ let assign_tcm_to_characters_from_file data chars file =
                                 (Alphabet.is_aminoacids old_alphabet) then
                         begin
                             let use_comb = Cost_matrix.Two_D.get_combination old_tcm in 
-                            let tmp =
-                                Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                                pure_sz l in
+                            let tmp = Cost_matrix.Two_D.calc_number_of_combinations_by_level pure_sz l in
                             if tmp <= 0 then begin
-                                output_info ("The alphabet size based on the new level is"^
-                                 " too large. I will apply level value from the \
-                                 old cost marix we are using for this one.\n%!");
+                                output_info
+                                  ("The alphabet size based on the new level is"^
+                                   " too large. I will apply level value from the"^
+                                   " old cost marix we are using for this one.\n%!");
                                 oldlevel, tb, use_comb, false 
                             end
                             else l,tb,true,true 
@@ -5539,13 +5539,19 @@ let assign_tcm_to_characters_from_file data chars file =
                 in
                 (*new create function [tcm x], x is all_elements*)
                 (fun x ->
-                    (*we still need to refill costmatrix because we have a new cost matrix file*)
-                    let tcm_full, tcm_original, mat = 
-                            Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker
-                            ~orientation:orientation ~use_comb:use_comb 
-                            ~level:level f x is_dna_or_ami_or_nucleotides 
-                    in
-                    tcm_full, tcm_original, Input_file ((FileStream.filename f), mat)),
+                    let key = (old_alphabet,x) in
+                    if Hashtbl.mem previous_members key then
+                      Hashtbl.find previous_members key
+                    else
+                        (*we still need to refill costmatrix because we have a new cost matrix file*)
+                        let tcm_full, tcm_original, mat =
+                                Cost_matrix.Two_D.of_file ~tie_breaker:tie_breaker
+                                ~orientation:orientation ~use_comb:use_comb 
+                                ~level:level f x is_dna_or_ami_or_nucleotides 
+                        in
+                        let res = tcm_full, tcm_original, Input_file ((FileStream.filename f), mat) in
+                        Hashtbl.add previous_members key res;
+                        res),
                 (*create new alphabet*)
                 if change_alphabet then (*create new alphabet*)
                     Alphabet.create_alph_by_level old_alphabet level oldlevel
