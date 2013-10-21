@@ -3313,6 +3313,13 @@ is listed, only the last one is executed.]
 
 \begin{arguments}
 
+\argumentdefinition{parallel}{}
+{Divides the search space of each tree in memory among parallel processes. This
+allows for a single tree in memory to be searched in parallel. Normal parallel
+scripts focus on distributing trees to each process. This option is only
+effective when running the application in parallel.}
+{parallel}
+
 \begin{argumentgroup}{Branch break order}
 {During the local search, a branch is broken and local branch swapping
 is performed (see the \emph{Neighborhood} group of arguments). The
