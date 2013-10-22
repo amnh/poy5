@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3582 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3610 $"
 
 let debug = false 
 
@@ -1553,8 +1553,8 @@ type command = [
                     [ LIDENT "rediagnose"; left_parenthesis; 
                         x = OPT clear_diagnosis; right_parenthesis -> 
                             match x with
-                            | None  
                             | Some false -> `ReDiagnose
+                            | None  
                             | Some true  -> `ReDiagnoseTrees ] |
                     [ LIDENT "run"; left_parenthesis; a = LIST0 [x = STRING -> x] SEP ","; 
                         right_parenthesis -> `ReadScript a ] |
