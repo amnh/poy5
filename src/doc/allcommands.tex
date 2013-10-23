@@ -153,16 +153,16 @@ tree that makes another tree acceptable for the lookahead list. This
 parameter is only useful if~\nccross{lookahead}{lookahead} is used.}
 {buildthreshold}
 
-\argumentdefinition{first}{}}
+\argumentdefinition{first}{}
 {Specifies how to choose between two trees with the same cost, take the first one to be found.}
 {}
-\argumentdefinition{last}{}}
+\argumentdefinition{last}{}
 {Specifies how to choose between two trees with the same cost, take the last one to be found. This
 is the default.}
 {}
-\argumentdefinition{at\_random}{}}
+\argumentdefinition{at\_random}{}
 {Specifies how to choose between two trees with the same cost, choose randomly.}
-{}
+{atrandom}
 
 \argumentdefinition{trees}{\obligatory{\poyint}}
 {The integer value specifies the number of independent, individual
@@ -3313,13 +3313,6 @@ is listed, only the last one is executed.]
 
 \begin{arguments}
 
-\argumentdefinition{parallel}{}
-{Divides the search space of each tree in memory among parallel processes. This
-allows for a single tree in memory to be searched in parallel. Normal parallel
-scripts focus on distributing trees to each process. This option is only
-effective when running the application in parallel.}
-{parallel}
-
 \begin{argumentgroup}{Branch break order}
 {During the local search, a branch is broken and local branch swapping
 is performed (see the \emph{Neighborhood} group of arguments). The
@@ -3590,15 +3583,24 @@ interface).}
 search or to return as a result. The following arguments determine under what
 conditions can a tree be acceptable during the search.}
 
-\argumentdefinition{first}{}}
+\argumentdefinition{first}{}
 {Specifies how to choose between two trees with the same cost, take the first one to be found.}
 {}
-\argumentdefinition{last}{}}
+
+\argumentdefinition{last}{}
 {Specifies how to choose between two trees with the same cost, take the last one to be found.}
 {}
-\argumentdefinition{at\_random}{}}
+
+\argumentdefinition{at\_random}{}
 {Specifies how to choose between two trees with the same cost, choose randomly. This is the default.}
-{}
+{atrandom}
+
+\argumentdefinition{parallel}{}
+{Divides the search space of each tree in memory among parallel processes. This
+allows for a single tree in memory to be searched in parallel. Normal parallel
+scripts focus on distributing trees to each process. This option is only
+effective when running the application in parallel.}
+{parallel}
 
 \argumentdefinition{threshold}{\obligatory{\poyfloat}}
 {Sets the percentage cost for suboptimal trees that are more exhaustively
