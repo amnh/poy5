@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3587 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3612 $"
 
 let (-->) a b = b a
 
@@ -2192,8 +2192,7 @@ let rec process_tree_handling run meth =
                           else
                             StringOptMap.add x xt acc)
                         StringOptMap.empty
-              --> StringOptMap.bindings
-              --> List.map snd
+              --> (fun x -> StringOptMap.fold (fun _ x acc -> x::acc) x [])
               --> split_variant_trees
         | `Unique ->
             let lst1 = Sexpr.to_list (Sexpr.map (fun x -> `P x) run.trees)
