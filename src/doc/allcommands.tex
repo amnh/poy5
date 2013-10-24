@@ -154,14 +154,15 @@ parameter is only useful if~\nccross{lookahead}{lookahead} is used.}
 {buildthreshold}
 
 \argumentdefinition{first}{}
-{Specifies how to choose between two trees with the same cost, take the first one to be found.}
+{Specifies to choose the first tree found when confronted with two trees of the same cost.}
 {}
+
 \argumentdefinition{last}{}
-{Specifies how to choose between two trees with the same cost, take the last one to be found. This
-is the default.}
+{Specifies to choose the new tree when confronted with two trees of the same cost.}
 {}
+
 \argumentdefinition{at\_random}{}
-{Specifies how to choose between two trees with the same cost, choose randomly.}
+{Specifies to choose randomly between the two trees of the same cost.}
 {atrandom}
 
 \argumentdefinition{trees}{\obligatory{\poyint}}
@@ -3584,22 +3585,23 @@ search or to return as a result. The following arguments determine under what
 conditions can a tree be acceptable during the search.}
 
 \argumentdefinition{first}{}
-{Specifies how to choose between two trees with the same cost, take the first one to be found.}
+{Specifies to choose the first tree found when confronted with two trees of the same cost.}
 {}
 
 \argumentdefinition{last}{}
-{Specifies how to choose between two trees with the same cost, take the last one to be found.}
+{Specifies to choose the new tree when confronted with two trees of the same cost.}
 {}
 
 \argumentdefinition{at\_random}{}
-{Specifies how to choose between two trees with the same cost, choose randomly. This is the default.}
+{Specifies to choose randomly between the two trees of the same cost.}
 {atrandom}
 
 \argumentdefinition{parallel}{}
 {Divides the search space of each tree in memory among parallel processes. This
-allows for a single tree in memory to be searched in parallel. Normal parallel
-scripts focus on distributing trees to each process. This option is only
-effective when running the application in parallel.}
+allows for a single tree in memory to be searched in parallel instead of normal parallel
+scripts which distribute trees to each process and each search is independent. This option is only
+effective when running the application in parallel, and most effective when dealing with a optimality
+criteria that is computationally intensive --dynamic likelihood, for example.}
 {parallel}
 
 \argumentdefinition{threshold}{\obligatory{\poyfloat}}
