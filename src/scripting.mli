@@ -30,7 +30,9 @@ type search_results = {
     total_ratchet : int;
 }
 
-type model_data = (int list * MlModel.spec) list
+type model_data =
+  (int list * MlModel.spec) list * 
+    (string, ((string, float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t option
 
 type ('a, 'b) run = {
     description : string option;

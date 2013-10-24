@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3612 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3618 $"
 
 let (-->) a b = b a
 
@@ -68,8 +68,10 @@ let get_sizerank () =
     (1,1)
   END
 
-
-type model_data = (int list * MlModel.spec) list
+  (** to add information to this structure also modify [to|from]_store_tree *)
+type model_data =
+  (int list * MlModel.spec) list * 
+    (string, ((string, float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t option
 
 type ('a, 'b) run = {
     description : string option;
@@ -2404,23 +2406,23 @@ let to_store_tree ptree =
                     | None   -> []
                     | Some m -> [(lst,m.MlModel.spec)]
                   end
-              | _ -> []) 
+              | _ -> [])
       --> List.flatten 
     in
-    (Ptree.get_cost `Adjusted ptree,data, ptree.Ptree.tree)
+    (Ptree.get_cost `Adjusted ptree,(data,ptree.Ptree.data.Data.branches),ptree.Ptree.tree)
 
 and from_store_trees orun union =
   let unopted =
     Sexpr.map
-      (fun (_,lks,tree) ->
+      (fun (_,(lks,b),tree) ->
           let data = 
             List.fold_left
               (fun acc (xs,spec) ->
                 Data.apply_likelihood_model_on_chars acc xs (MlModel.create spec))
-              orun.data
+              {orun.data with Data.branches = b;}
               lks
           in
-          { (Ptree.empty data) with Ptree.tree = tree } )
+          { (Ptree.empty data) with Ptree.tree = tree })
       orun.stored_trees
   in
   let nrun = rediagnose_trees true {orun with trees=unopted; stored_trees=`Empty;} in
