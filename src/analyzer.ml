@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3567 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3621 $"
 
 let debug = false
 
@@ -2102,7 +2102,7 @@ let rec parallel_analysis mine n (script : Methods.script list) =
                         | Some x->`Fusing (Some (my_part mine n x),max_trees,a,b,c,d)
                     in
                     let script =
-                      [`GatherTrees (merger,[`GetStored]);meth;`SelectYourTrees]
+                      [`GatherTrees (merger,[`GetStored]);meth;]
                     in
                     script
                | `Repeat(c,script) ->
