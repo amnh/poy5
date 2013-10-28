@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3536 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3622 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -2235,7 +2235,7 @@ module F : Ptree.Tree_Operations
                 | None   -> failwithf "AllDirChar.to_formatter; no single data: %d -- %d"
                                         par (AllDirNode.AllDirF.taxon_code node)
         in
-(*        let tree = assign_final_states tree in*)
+        let tree = assign_final_states tree in
         let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in
         let get_simplified parent x =
             let nd = Ptree.get_node_data x tree in
