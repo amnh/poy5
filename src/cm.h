@@ -84,41 +84,27 @@ typedef struct cm * cmt;
 /*
  * check if we are using "level", return 1 when true, 0 for false
  */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_check_level (cmt c);
+int cm_check_level (cmt c);
 
-inline int
-cm_get_min_non0_cost (cmt c);
+int cm_get_min_non0_cost (cmt c);
 
-/* 
- * Retrieves the alphabet size flag from the transformation cost matrix.
- */
-inline int 
-cm_get_alphabet_size (cmt c);
+/* Retrieves the alphabet size flag from the transformation cost matrix.  */
+int cm_get_alphabet_size (cmt c);
 
 // Retrieves the original alphabet size
-inline int
-cm_get_ori_a_size (cmt c);
+int cm_get_ori_a_size (cmt c);
 
 // Retrieves the tie_breaker, 0=random,1=pick first,2=pick last
-inline int
-cm_get_tie_breaker (cmt c);
+int cm_get_tie_breaker (cmt c);
 
 // Retrieves the level value
-inline int
-cm_get_level (cmt c);
+int cm_get_level (cmt c);
 
 // Retrieves the postion of first code in alpahbet that has "gap" 
-inline int
-cm_get_gap_startNO (const cmt c);
+int cm_get_gap_startNO (const cmt c);
 
 // Retrieves the value at position (a,b) of combination map matrix
-inline int
-cm_get_combmap(int *tcm, int a, int b, int mapsize);
+int cm_get_combmap(int *tcm, int a, int b, int mapsize);
 
 /*
 inline int
@@ -127,8 +113,8 @@ cm_get_comblist( int * tcm, int combcode, int position, int mapwide);
 /*
  * Retrieves the gap code as defined in the transformation cost matrix. 
  */
-inline SEQT
-cm_get_gap (const cmt c);
+SEQT
+m_get_gap (const cmt c);
 
 /*
  * Retrieves a pointer to the memory position stored in the precalculated array

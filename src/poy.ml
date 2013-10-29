@@ -17,13 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 3561 $"
+let () = SadmanOutput.register "Main" "$Revision: 3620 $"
 
 let seed = truncate (Unix.time ())
 
 let hostname = Unix.gethostname ()
 
-let debug_pass_errors = false
+let debug_pass_errors = true
 
 let master =
     IFDEF USEPARALLEL THEN
@@ -190,7 +190,7 @@ let () =
                 else []
             in
             let command =
-                let debug_script = false and (-->) a b = b a in
+                let debug_script = true and (-->) a b = b a in
                 IFDEF USEPARALLEL THEN
                     let command = Analyzer.analyze command in
                     let command = Mpi.broadcast command 0 Mpi.comm_world in

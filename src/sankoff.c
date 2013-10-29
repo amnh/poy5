@@ -34,7 +34,6 @@
 
 #define median_3_su 0
 
-
 value sankoff_GC_custom_max( value n )
 {
     CAMLparam1( n );
@@ -43,13 +42,7 @@ value sankoff_GC_custom_max( value n )
 }
 
 
-
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
-free_elt (elt_p ep)
+void free_elt (elt_p ep)
 {
     if(ep->states!=NULL) free(ep->states);
     if(ep->leftstates!=NULL) free(ep->leftstates);
@@ -67,12 +60,7 @@ free_elt (elt_p ep)
 }
 
 
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
-free_eltarr(eltarr_p eap) {
+void free_eltarr(eltarr_p eap) {
     int i;
     if (eap->tcm!=NULL)
         free(eap->tcm);
@@ -82,12 +70,7 @@ free_eltarr(eltarr_p eap) {
     return;
 }
 
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
-sankoff_CAML_free_eltarr (value v) {
+void sankoff_CAML_free_eltarr (value v) {
     eltarr_p eap;
     eap = Sankoff_return_eltarr(v);
     assert(eap!=NULL);
@@ -102,11 +85,7 @@ sankoff_CAML_free_eltarr (value v) {
 }
 
 //similar to free_elt(elt_p ep), but we free ep itself here
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
+void
 sankoff_CAML_free_elt (value v) {
     elt_p ep;
     ep = Sankoff_return_elt(v);
@@ -471,11 +450,7 @@ sankoff_clone_elt (elt_p ep2, elt_p ep1) {
 
 //return 0 if two eltarr are the same, 1 otherwise
 //we compare array states, e, beta. not m and best_states
-#ifdef _win32
-__inline int
-#else
-inline int
-#endif  
+int
 sankoff_compare_elt(elt_p ep1, elt_p ep2) {
     int num_states = ep1->num_states;
     if (ep1->num_states != ep2->num_states) 
@@ -1128,11 +1103,7 @@ sankoff_get_extra_cost_for_root(eltarr_p eapRoot) {
 
 //Calculates array m -- the extra cost when joining a new branch/node R to existing
 //subtree on edge(nodeA,nodeD), creating a new node M between node A and D. 
-#ifdef _win32
-__inline int
-#else
-inline int
-#endif
+int
 sankoff_elt_dist_2 (elt_p epD, elt_p epA, elt_p epR, int * tcm) {
     int num_states = epD->num_states;
     int * shared_states_rd = (int*)calloc(num_states,sizeof(int));
@@ -1223,11 +1194,7 @@ sankoff_dist_2 (eltarr_p eapD,eltarr_p eapA, eltarr_p eapR) {
 
 /* This algorithm is taken from Goloboff 1998.  Calculate D', then the final E
  * value from that.*/
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
+void
 sankoff_elt_median_3(elt_p epA, elt_p epN, elt_p epL, elt_p epR, elt_p newepN, int * tcm,int is_left_child) {
     int num_states = epN->num_states;
     //copy epN to newepN, we are going to update array e later
@@ -1303,13 +1270,8 @@ sankoff_elt_median_3(elt_p epA, elt_p epN, elt_p epL, elt_p epR, elt_p newepN, i
 }
 
 
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
+void
 sankoff_median_3(eltarr_p eapA,eltarr_p eapN, eltarr_p eapL, eltarr_p eapR, eltarr_p neweapN) {
-    int debug = 0;
     int i;
     int num_states, num_elts;
     num_states = eapN->num_states;
@@ -1343,11 +1305,7 @@ sankoff_median_3(eltarr_p eapA,eltarr_p eapN, eltarr_p eapL, eltarr_p eapR, elta
 * homologous (same code), and must also have the same transformation cost matrix
 * associated. If they are homologous, it must also be the case that they hold
 * the same number of valid states. */
-#ifdef _win32
-__inline int
-#else
-inline int
-#endif
+int
 sankoff_elt_median(elt_p ep1, elt_p ep2, int * tcm, elt_p newep) {
     int debug = 0;
     //ecode was init with (-1) before this function
@@ -1439,11 +1397,7 @@ sankoff_elt_median(elt_p ep1, elt_p ep2, int * tcm, elt_p newep) {
 
 /* Calculates the distance between two characters a and b 
 * Note that we only calculate the _added_ distance */
-#ifdef _win32
-__inline int
-#else
-inline int
-#endif
+int
 sankoff_elt_distance(elt_p ep1, elt_p ep2, int * tcm, elt_p newep) {
     int debug = 0;
     if (debug) {
@@ -1467,11 +1421,7 @@ sankoff_elt_distance(elt_p ep1, elt_p ep2, int * tcm, elt_p newep) {
     return (mincost - leftcost - rightcost);
 }
 
-#ifdef _win32
-__inline void
-#else
-inline void
-#endif
+void
 sankoff_median(int median_node_tcode,eltarr_p eap1,eltarr_p eap2, eltarr_p neweltarr) {
     int debug = 0;
     if (debug) { printf("===== sankoff_median =====\n on eap1:\n");
@@ -1536,13 +1486,7 @@ sankoff_CAML_get_best_child_state (value a, value ch_tcode) {
 }
 
 
-
-
-#ifdef _win32
-__inline int
-#else
-inline int
-#endif
+int
 sankoff_distance(eltarr_p eap1,eltarr_p eap2, eltarr_p neweltarr) {
     int acc=0;
     int i;

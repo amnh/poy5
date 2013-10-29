@@ -18,8 +18,8 @@
 /* USA                                                                        */
 
 #ifndef SEQ_H
-
 #define SEQ_H 1
+
 #include <caml/custom.h>
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -37,15 +37,15 @@
 
 
 #ifdef USE_LARGE_ALPHABETS 
-#define SEQT unsigned int
-#define DESERIALIZE_SEQT(a,b) caml_deserialize_block_4((a),(b))
-#define SERIALIZE_SEQT(a,b) caml_serialize_block_4((a),(b))
-#define INDEXSIZE long int
+ #define SEQT unsigned int
+ #define DESERIALIZE_SEQT(a,b) caml_deserialize_block_4((a),(b))
+ #define SERIALIZE_SEQT(a,b) caml_serialize_block_4((a),(b))
+ #define INDEXSIZE long int
 #else 
-#define SEQT unsigned char
-#define DESERIALIZE_SEQT(a,b) caml_deserialize_block_1((a),(b))
-#define SERIALIZE_SEQT(a,b) caml_serialize_block_1((a),(b))
-#define INDEXSIZE int
+ #define SEQT unsigned char
+ #define DESERIALIZE_SEQT(a,b) caml_deserialize_block_1((a),(b))
+ #define SERIALIZE_SEQT(a,b) caml_serialize_block_1((a),(b))
+ #define INDEXSIZE int
 #endif
 
 /* Sequence structure to be used inside ocaml custom types. */
@@ -63,35 +63,15 @@ struct seq {
 typedef struct seq * seqt;
 
 /* Gets the capacity of the sequence a. */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-seq_get_cap (const seqt a);
+int seq_get_cap (const seqt a);
 
-#ifdef _WIN32
-__inline void
-#else
-inline void
-#endif
-seq_prepend (seqt a, SEQT v);
+void seq_prepend (seqt a, SEQT v);
 
 /* Gets the total length of the sequence a */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-seq_get_len (const seqt a);
+int seq_get_len (const seqt a);
 
 /* Gets a pointer to the beginning of the sequence a */
-#ifdef _WIN32
-__inline SEQT *
-#else
-inline SEQT *
-#endif
-seq_get_begin (const seqt a);
+SEQT * seq_get_begin (const seqt a);
 
 void seq_clear (seqt s);
 
@@ -113,14 +93,8 @@ inline SEQT *
 #endif
 seq_get_end (const seqt a);
 
-/* Gets the value of the sequence a in the position p, a starting in position 0
- */
-#ifdef _WIN32
-__inline SEQT 
-#else
-inline SEQT 
-#endif
-seq_get (const seqt a, int p);
+/* Gets the value of the sequence a in the position p, a starting in position 0 */
+SEQT seq_get (const seqt a, int p);
 
 void seq_print(const seqt a);
 

@@ -1760,11 +1760,6 @@ median_invar(const mll* a, const mll* b, mll* c){
 }
 
 
-#ifdef _WIN32
-__inline
-#else
-inline
-#endif
 void
 median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
         mll* cmll, const int cost,const int rate_idx)

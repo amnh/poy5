@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3618 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3620 $"
 
 let (-->) a b = b a
 
@@ -1288,7 +1288,7 @@ let ndebug = true
 let ndebug_no_catch = true
 
 let debugparallel format =
-  let debug = false in
+  let debug = true in
   let f = if debug then print_string else (fun _ -> ()) in
   Printf.ksprintf f format
 
@@ -3714,6 +3714,7 @@ let rec folder (run : r) meth =
             run
         END
     | `SelectYourTrees ->
+        debugparallel "%d SELECT TREES: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
         IFDEF USEPARALLEL THEN
             print_msg "Entering select trees";
             let run = filter_my_trees run in
@@ -3722,7 +3723,6 @@ let rec folder (run : r) meth =
         ELSE
             run
         END
-
     | `Skip
     | `Entry -> run
     | `Plugin (name, args) ->
@@ -3877,6 +3877,7 @@ let rec folder (run : r) meth =
             warn_if_no_trees_in_memory run.trees;
             { run with trees = CT.perturbe run.data run.trees meth }
     | `Fusing ((_, _, _, _, x, _) as params) ->
+            debugparallel "%d FUSE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
             warn_if_no_trees_in_memory run.trees;
             begin
                 try { run with trees = PTS.fusing run.data run.queue run.trees params }
@@ -3900,7 +3901,7 @@ let rec folder (run : r) meth =
                 S.bremer_support run.trees my_rank modul run.nodes run.trees local_optimum build 
                 run.data run.queue }
     | #Methods.escape_local as meth ->
-            debugparallel "OPTIMIZE: %d / %d\n%!" (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
+            debugparallel "%d OPTIMIZE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
             warn_if_no_trees_in_memory run.trees;
             let (`PerturbateNSearch (tr, _, search_meth, _, _)) = meth in
             let choose_best trees = 

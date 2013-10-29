@@ -216,11 +216,7 @@ full_backtrace (const seqt x, const seqt y, seqt e1, seqt e2, seqt m, fcmt *FA)
 
 
 /** Determine the cost of the alignment of A and B across branch length t **/
-#ifdef _WIN32
-__inline void 
-#else
-inline void 
-#endif
+void 
 general_cost(const seqt x, const seqt y, fcmt *FA, const int i, const int j)
 {
     double cost_aln, cost_ins, cost_del, temp_min;

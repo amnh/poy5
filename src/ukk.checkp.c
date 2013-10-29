@@ -69,9 +69,7 @@ void traceBack(int sab, int sac, int sCost, int sState,
 	       int fab, int fac, int fCost, int fState);
 void printTraceBack();
 
-
-
-inline int Ukk(int ab,int ac,int d,int state);
+int Ukk(int ab,int ac,int d,int state);
 int best(int ab, int ac, int d, int wantState);
 int calcUkk(int ab, int ac, int d, int toState);
 int okIndex(int a, int da, int end);
@@ -542,7 +540,7 @@ inline void sort(int aval[], int len)
   }
 }
 
-inline int withinMatrix(int ab, int ac, int d)
+int withinMatrix(int ab, int ac, int d)
 {
   // The new method for checking the boundary condition.  Much tighter ~20%(?)  -- 28/02/1999
   int bc=ac-ab;
@@ -575,7 +573,7 @@ inline int withinMatrix(int ab, int ac, int d)
     return 1;
 }
 
-inline int Ukk(int ab,int ac,int d,int state) 
+int Ukk(int ab,int ac,int d,int state) 
 {
   
   if (!withinMatrix(ab,ac,d)) return -INFINITY;

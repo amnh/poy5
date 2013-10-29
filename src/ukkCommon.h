@@ -219,7 +219,7 @@ inline void *allocPlane(AllocInfo *a)
 }
 
 // recalloc - does a realloc() but sets any new memory to 0.
-inline void *recalloc(void *p, size_t oldSize, size_t newSize)
+void *recalloc(void *p, size_t oldSize, size_t newSize)
 {
   p = realloc(p, newSize);
   if (!p || oldSize>newSize) return p;
@@ -228,7 +228,7 @@ inline void *recalloc(void *p, size_t oldSize, size_t newSize)
   return p;
 }
 
-inline void *getPtr(AllocInfo *a, int ab, int ac, int d, int s)
+void *getPtr(AllocInfo *a, int ab, int ac, int d, int s)
 {
   int i,j;
   void **bPtr;

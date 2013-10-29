@@ -39,28 +39,28 @@
  * name>
  */
 
-inline void
+void
 algn_fill_row (int *mm, const int *pm, const int *gap_row, \
         const int *alg_row, unsigned char *dm, int c, int l);
 
-inline int
+int
 algn_fill_plane (const seqt s1, int *prec, int s1_len, \
         int s2_len, int *mm, unsigned char *dm, int uk, const cmt c);
 
-inline void
+void
 algn_fill_row_uk (int *mm, const int *pm, const int *gap_row, \
         const int *alg_row, unsigned char *dm, int c, int l, int lowerbound \
         int upperbound);
 
-inline int
+int
 algn_fill_plane_uk (const struct seq *s1, int *prec, int s1_len, \
         int s2_len, int *mm, unsigned char *dm, int uk, const struct cm *c);
 
-static inline void
+void
 fill_moved (int s3_len, int *prev_m, int *upper_m, int *diag_m, int *s1gs3, \
         int *gs2s3, int *s1s2s3, int *mm);
 
-static inline void
+void
 fill_parallel (int s3_len, int *prev_m, int *upper_m, int *diag_m, \
         int *s1gs3, int *gs2s3, int *s1s2s3, int *mm);
 
@@ -84,15 +84,15 @@ fill_parallel (int s3_len, int *prev_m, int *upper_m, int *diag_m, \
  * g, g, s3 -> vector (the last one to be done, not parallelizable
  *
  */
-inline int
+int
 algn_fill_cube (const seqt s1, const seqt s2, int *prec, \
         int s1_len, int s2_len, int s3_len, int *mm, unsigned char *dm, int uk, \
         int gap, int a_sz);
 
-inline int
+int
 algn_nw (const seqt s1, const seqt s2, const cmt c, matricest m, int uk);
 
-inline int
+int
 algn_nw_3d (const seqt s1, const seqt s2, const seqt s3,
         const cm_3dt c, matricest m, int uk);
 
@@ -102,11 +102,11 @@ print_bcktrck (const seqt s1, const seqt s2, const matricest m);
 void
 print_dynmtrx (const seqt s1, const seqt s2, matricest m);
 
-inline void
+void
 backtrack_2d (const seqt s1, const seqt s2, seqt r1, \
         seqt r2, const matricest m, const cmt c);
 
-inline void
+void
 backtrack_3d (const seqt s1, const seqt s2, seqt s3, \
         seqt r1, seqt r2, seqt r3, matricest m, const cm_3dt c);
 
@@ -114,7 +114,7 @@ backtrack_3d (const seqt s1, const seqt s2, seqt s3, \
  * Given three aligned sequences s1, s2, and s3, the median between them is
  * returned in the sequence sm, using the cost matrix stored in m.
  */
-inline void
+void
 algn_get_median_3d (seqt s1, seqt s2, seqt s3, cm_3dt m, seqt sm);
 
 #endif /* ALGN_H */

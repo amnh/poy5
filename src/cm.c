@@ -42,12 +42,7 @@ ceil_log_2 (int v) {
     return (i + 1);
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_check_level (cmt c)
+int cm_check_level (cmt c)
 {
     int level = c->level;
     int ori_sz = c->ori_a_sz;
@@ -889,12 +884,7 @@ cm_get_gap_startNO (const cmt c) {
     return c->gap_startNO;
 }
 
-#ifdef _WIN32
-__inline SEQT
-#else
-inline SEQT
-#endif
-cm_get_gap (const cmt c) {
+SEQT cm_get_gap (const cmt c) {
     assert(c != NULL);
     return c->gap;
 }
@@ -1146,11 +1136,7 @@ cm_get_min_non0_cost (cmt c) {
     return min_non0_cost;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
+int
 cm_calc_cost (int *tcm, SEQT a, SEQT b, int a_sz) {
     int *res;
     assert (a_sz >= 0);

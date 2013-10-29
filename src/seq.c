@@ -89,12 +89,7 @@ seq_get_ptr (const seqt a, int p) {
     return (a->begin + p);
 }
     
-#ifdef _WIN32
-__inline SEQT 
-#else
-inline SEQT 
-#endif
-seq_get (const seqt a, int p) {
+SEQT seq_get (const seqt a, int p) {
     assert (p < a->len);
     assert (p >= 0);
     return (*(seq_get_ptr (a, p)));
@@ -149,12 +144,7 @@ seq_reverse_ip (seqt cs) {
     return;
 }
 
-#ifdef _WIN32
-__inline void
-#else
-inline void
-#endif
-seq_prepend (seqt a, SEQT v) {
+void seq_prepend (seqt a, SEQT v) {
     assert(a->cap > a->len);
     a->begin = a->begin - 1;
     *(a->begin) = v;

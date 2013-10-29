@@ -445,36 +445,23 @@ int get_delta (const cmt c)
 //[get_idx] fill in the idx in diag arrays -- (whichdiag,idx_in_my_diag) based on the input idx -- (i,j). 
 // also return sign showing if this cell is on the left/right border of the new band
 //if oldk>=0 , we also return first_time_update=1 if this cell is in the new band but not in the old band, thus is never been updated before.
-#ifdef _WIN32
-__inline void 
-#else
-inline void 
-#endif
+void 
 get_idx (int oldk, int i,int j,newkkmat_p m, int * whichdiag,int * idx_in_my_diag, int * at_leftborder, int * at_rightborder, int * first_time_update)
 {
-    int debug = 0;
     int currentK = m->k;
     if(currentK<0) failwith("ERROR:newkkonen.get_idx,k<0");
     //though baseband is defined as MAT_SIZE in newkkonen.h, which might be long int. but actually we don't need that much, int is fine. if baseband itself is bigger than max_int, the memory requirement will blow off our computer anyway. 
     int bb = m->baseband;
     if(bb<=0) failwith("ERROR:newkkonen.get_idx,bb<=0"); 
-    if (debug) { printf("get_idx,i=%d,j=%d.bb=%d.currentk=%d,",i,j,bb,currentK); fflush(stdout);}
     int k_ij= i-j, k_ji = j-i;
     //see if this cell is in the new left band, or new right band with newk
     int in_new_band_l=0, in_new_band_r=0;
-    if(i>j) 
-    { 
+    if(i>j) { 
         *whichdiag = 2*(i-j)+bb-1 ;
-        if (debug) { printf("k_ij=%d,whichdiag=%d,",k_ij,*whichdiag); fflush(stdout);}
-    }
-    else if ( (i<=j)&&( (j-i)<bb ) )
-    { 
+    } else if ( (i<=j)&&( (j-i)<bb ) ) { 
         *whichdiag = j-i; 
-        if (debug) {printf("whichdiag=%d,",*whichdiag); fflush(stdout);}
-    }
-    else {
+    } else {
         *whichdiag = bb + 2*(j-i+1 - bb) -1 -1;
-        if (debug) {printf("k_ji=%d,whichdiag=%d,",k_ji,*whichdiag); fflush(stdout); }
     }
     if(*whichdiag <0) failwith ("ERROR,newkkonen.get_idx,whichdiag<0");
     if(*whichdiag > m->diag_size) failwith("ERROR,newkkonen.get_idx,whichdiag>m->diag_size");
@@ -487,7 +474,6 @@ get_idx (int oldk, int i,int j,newkkmat_p m, int * whichdiag,int * idx_in_my_dia
         if (k_ij > oldk) { in_new_band_l = 1; } else { in_new_band_l = 0; }
         if (in_new_band_r||in_new_band_l) { *first_time_update = 1; } else { *first_time_update = 0; }
     }
-    else {}
     //check if this cell is on the new left/right border
     if ( tmpr==currentK ) { *at_rightborder=1;}
         else *at_rightborder=0;
@@ -497,8 +483,7 @@ get_idx (int oldk, int i,int j,newkkmat_p m, int * whichdiag,int * idx_in_my_dia
     if(i<=j) idx=i;  
     else idx=j;  
     *idx_in_my_diag = idx;
-    if (debug) printf("idx=%d\n",idx);
-};
+}
 
 
 #ifdef _WIN32

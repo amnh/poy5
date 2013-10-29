@@ -34,7 +34,6 @@ struct Queue
 };
 typedef struct Queue * q_t;
 
-
 void init_empty_queue (q_t emptyq);
 
 void enqueue (q_t thisq, QUEUE_DATA value);
@@ -43,13 +42,6 @@ void dequeue (q_t thisq, QUEUE_DATA *value);
 
 void peekqueue(q_t thisq, QUEUE_DATA *value);
 
-
-#ifdef _WIN32
-__inline int 
-#else
-inline int 
-#endif
-is_emptyqueue (q_t thisq);
-
+int is_emptyqueue (q_t thisq);
 
 void transfer_queue(q_t q1, q_t q2);
