@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 3620 $"
+let () = SadmanOutput.register "Main" "$Revision: 3626 $"
 
 let seed = truncate (Unix.time ())
 
@@ -190,7 +190,7 @@ let () =
                 else []
             in
             let command =
-                let debug_script = true and (-->) a b = b a in
+                let debug_script = false and (-->) a b = b a in
                 IFDEF USEPARALLEL THEN
                     let command = Analyzer.analyze command in
                     let command = Mpi.broadcast command 0 Mpi.comm_world in
