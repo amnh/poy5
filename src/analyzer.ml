@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3567 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3623 $"
 
 let debug = false
 
@@ -2082,7 +2082,7 @@ let rec parallel_analysis mine n (script : Methods.script list) =
                     let a = if partition_swap b then 1 else my_part mine n a in
                     [`ParallelPipeline(a,b,c,d)]
                 | (`OnEachTree (_,m)) ->
-                    let m = `UnionStored :: (m @ [`StoreTrees]) in
+                    let m = `UnionStored :: (m @ [`UnionStored]) in
                     [`GatherTrees (m,[`GetStored]);`Barrier; meth;`SelectYourTrees]
                 | `Jackknife (a,it,b,c,d) ->
                     let it = my_part mine n it in
@@ -2094,15 +2094,15 @@ let rec parallel_analysis mine n (script : Methods.script list) =
                     [`GatherBremer; `Bremer (a, b, mine, n)]
                 | `Fusing (iterations,max_trees,a,b,c,d) ->
                     let merger = match max_trees with
-                        | None  -> [`StoreTrees]
-                        | Some x-> [`UnionTrees;`BestN max_trees;`StoreTrees]
+                        | None  -> [`Unique; `UnionStored]
+                        | Some x-> [`BestN max_trees;`UnionStored]
                     in
                     let meth = match iterations with
                         | None  -> meth
                         | Some x->`Fusing (Some (my_part mine n x),max_trees,a,b,c,d)
                     in
                     let script =
-                      [`GatherTrees (merger,[`GetStored]);meth;`SelectYourTrees]
+                      [`GatherTrees (merger,[`GetStored]);meth;]
                     in
                     script
                | `Repeat(c,script) ->

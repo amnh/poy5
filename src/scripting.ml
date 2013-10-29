@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3620 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3625 $"
 
 let (-->) a b = b a
 
@@ -1288,7 +1288,7 @@ let ndebug = true
 let ndebug_no_catch = true
 
 let debugparallel format =
-  let debug = true in
+  let debug = false in
   let f = if debug then print_string else (fun _ -> ()) in
   Printf.ksprintf f format
 
@@ -2233,11 +2233,11 @@ let only_multistatic meth =
         | `Automatic_Static_Aprox _ -> false
         | _ -> true)) true meth
 
-let warn_if_no_trees_in_memory trees = 
+let warn_if_no_trees_in_memory fname trees = 
     let items = Sexpr.length trees in
     if items = 0 then
         Status.user_message Status.Warning
-            ("There@ are@ no@ active@ trees@ in@ memory!")
+            ("There@ are@ no@ active@ trees@ in@ memory@ for@ "^fname^"!")
 
 let get_trees_for_support support_class run =
     let do_support support_set x = match support_set with
@@ -3793,7 +3793,6 @@ let rec folder (run : r) meth =
     (* The following methods are user friendly *)
     | #Methods.tree_handling as meth ->
         debugparallel "%d FILTER: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-        warn_if_no_trees_in_memory run.trees;
         process_tree_handling run meth
     | #Methods.characters_handling as meth ->
         update_trees_to_data false true (process_characters_handling run meth)
@@ -3826,7 +3825,7 @@ let rec folder (run : r) meth =
         end
     | #Methods.local_optimum as meth ->
             debugparallel "%d SWAP: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-            warn_if_no_trees_in_memory run.trees;
+            warn_if_no_trees_in_memory "swap" run.trees;
             let sets =
                 let `LocalOptimum m = meth in
                 TreeSearch.sets m.Methods.tabu_join run.data run.trees 
@@ -3874,11 +3873,11 @@ let rec folder (run : r) meth =
                         visited user_constraint run
 
     | #Methods.perturb_method as meth ->
-            warn_if_no_trees_in_memory run.trees;
+            warn_if_no_trees_in_memory "perturb" run.trees;
             { run with trees = CT.perturbe run.data run.trees meth }
     | `Fusing ((_, _, _, _, x, _) as params) ->
             debugparallel "%d FUSE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-            warn_if_no_trees_in_memory run.trees;
+            warn_if_no_trees_in_memory "fuse" run.trees;
             begin
                 try { run with trees = PTS.fusing run.data run.queue run.trees params }
                 with | Failure "Tree fusing: must have at least two trees" -> run
@@ -3895,14 +3894,14 @@ let rec folder (run : r) meth =
                 Some (it, S.support run.trees run.nodes meth run.data run.queue) }
     | `Bremer (local_optimum, build, my_rank, modul) ->
             assert (my_rank < modul);
-            warn_if_no_trees_in_memory run.trees;
+            warn_if_no_trees_in_memory "bremer" run.trees;
             let run = reroot_at_outgroup run in
             { run with bremer_support = 
                 S.bremer_support run.trees my_rank modul run.nodes run.trees local_optimum build 
                 run.data run.queue }
     | #Methods.escape_local as meth ->
             debugparallel "%d OPTIMIZE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-            warn_if_no_trees_in_memory run.trees;
+            warn_if_no_trees_in_memory "swap" run.trees;
             let (`PerturbateNSearch (tr, _, search_meth, _, _)) = meth in
             let choose_best trees = 
                 (* A function to select the best between the
@@ -4588,7 +4587,7 @@ END
                 Status.user_message (Status.Output (None, false,[])) "%!";
                 run
             | #Methods.diagnosis as meth ->
-                warn_if_no_trees_in_memory run.trees;
+                warn_if_no_trees_in_memory "diagnosis" run.trees;
                 let () = 
                     Sexpr.leaf_iter (fun x -> D.diagnosis run.data x meth) run.trees 
                 in
