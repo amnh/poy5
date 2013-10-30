@@ -843,43 +843,23 @@ cm_get_map_sz (const cmt c) {
     return c->map_sz;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_map_sz_3d (const cm_3dt c) {
+int cm_get_map_sz_3d (const cm_3dt c) {
     assert(c != NULL);
     return c->map_sz;
 }
 
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_level (const cmt c) {
+int cm_get_level (const cmt c) {
     assert(c != NULL);
     return c->level;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_level_3d (const cm_3dt c) {
+int cm_get_level_3d (const cm_3dt c) {
     assert(c != NULL);
     return c->level;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_gap_startNO (const cmt c) {
+int cm_get_gap_startNO (const cmt c) {
     assert(c != NULL);
     return c->gap_startNO;
 }
@@ -889,72 +869,37 @@ SEQT cm_get_gap (const cmt c) {
     return c->gap;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_gap_3d (const cm_3dt c) {
+int cm_get_gap_3d (const cm_3dt c) {
     assert(c != NULL);
     return c->gap;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_affine_flag (cmt c) {
+int cm_get_affine_flag (cmt c) {
     assert(c != NULL);
     return c->cost_model_type;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_affine_flag_3d (cm_3dt c) {
+int cm_get_affine_flag_3d (cm_3dt c) {
     assert(c != NULL);
     return c->cost_model_type;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_gap_opening_parameter (cmt c) {
+int cm_get_gap_opening_parameter (cmt c) {
     assert(c != NULL);
     return c->gap_open;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_gap_opening_parameter_3d (const cm_3dt c) {
+int cm_get_gap_opening_parameter_3d (const cm_3dt c) {
     assert(c != NULL);
     return c->gap_open;
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_calc_cost_position (int a, int b, int a_sz) {
+int cm_calc_cost_position (int a, int b, int a_sz) {
     assert(a_sz >= 0);
     return ((a << a_sz) + b);
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_calc_cost_position_seqt (SEQT a, SEQT b, int a_sz) {
+int cm_calc_cost_position_seqt (SEQT a, SEQT b, int a_sz) {
     assert(a_sz >= 0);
    return ((((int) a) << a_sz) + ((int) b));
 }
@@ -969,12 +914,7 @@ cm_calc_cost_position_seqt_nonbit (SEQT a, SEQT b, int a_sz) {
     return ((INDEXSIZE)(((INDEXSIZE) a) * (INDEXSIZE)a_sz) + ((INDEXSIZE) b));
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_calc_cost_position_3d_seqt (SEQT a, SEQT b, SEQT c, int a_sz) {
+int cm_calc_cost_position_3d_seqt (SEQT a, SEQT b, SEQT c, int a_sz) {
     assert(a_sz >= 0);
     return ((((((int) a) << a_sz) + ((int) b)) << a_sz) + ((int) c));
 }
@@ -1393,17 +1333,12 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     return;
 }
 
-const int *
-cm_get_precal_row (const int *p, SEQT item, int len) {
+const int * cm_get_precal_row (const int *p, SEQT item, int len) {
     return (p + (len * item));
 }
 
 
-#ifdef _WIN32
-__inline const int *
-#else
-inline const int *
-#endif
+int *
 cm_get_pos_in_precalc (const int *to, int s3l, int a_sz, int s1c, int s2c, int s3p)
 {
     int *res;
@@ -1412,7 +1347,7 @@ cm_get_pos_in_precalc (const int *to, int s3l, int a_sz, int s1c, int s2c, int s
     return (res);
 }
 
-const inline int *
+int *
 cm_get_row_precalc_3d (const int *to, int s3l, int a_sz, int s1c, int s2c) {
     return (cm_get_pos_in_precalc (to, s3l, a_sz, s1c, s2c, 0));
 }

@@ -81,9 +81,7 @@ struct cm {
  */
 typedef struct cm * cmt;
 
-/*
- * check if we are using "level", return 1 when true, 0 for false
- */
+/* check if we are using "level", return 1 when true, 0 for false */
 int cm_check_level (cmt c);
 
 int cm_get_min_non0_cost (cmt c);
@@ -106,15 +104,8 @@ int cm_get_gap_startNO (const cmt c);
 // Retrieves the value at position (a,b) of combination map matrix
 int cm_get_combmap(int *tcm, int a, int b, int mapsize);
 
-/*
-inline int
-cm_get_comblist( int * tcm, int combcode, int position, int mapwide);
-*/
-/*
- * Retrieves the gap code as defined in the transformation cost matrix. 
- */
-SEQT
-m_get_gap (const cmt c);
+/* Retrieves the gap code as defined in the transformation cost matrix.  */
+SEQT cm_get_gap (const cmt c);
 
 /*
  * Retrieves a pointer to the memory position stored in the precalculated array
@@ -125,12 +116,7 @@ m_get_gap (const cmt c);
  * the character from s1, and s2c is defined in an analogous manner. s3p is the
  * position in the sequence s3 of interest. s3p should be less than s3l.
  */
-#ifdef _WIN32
-const __inline int *
-#else
-const inline int *
-#endif
-cm_get_pos_in_precalc (const int *to, int s3l, int a_sz, int s1c, int s2c, int s3p);
+int * cm_get_pos_in_precalc (const int *to, int s3l, int a_sz, int s1c, int s2c, int s3p);
 
 /* 
  * During the 3d alignments, calculations are performed for each element in the
@@ -138,45 +124,25 @@ cm_get_pos_in_precalc (const int *to, int s3l, int a_sz, int s1c, int s2c, int s
  * retrieves the first element in those precalculated arrays. The parameters
  * definitions are analogous to those explained in cm_get_pos_in_precalc 
  */
-#ifdef _WIN32
-const __inline int *
-#else
-const inline int *
-#endif
-cm_get_row_precalc_3d (const int *to, int s3l, int a_sz, int s1c, int s2c);
+int * cm_get_row_precalc_3d (const int *to, int s3l, int a_sz, int s1c, int s2c);
 
 /*
  * Retrieves the affine flag from the transformation cost matrix. Remember this
  * flag is 1 if true, otherwise 0. 
  */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_affine_flag (cmt c);
+int cm_get_affine_flag (cmt c);
 
 /*
  * Gets the total number of possible combinations of an alphabeet of size
  * a_sz. The size of the alphabet must be bigger than 0.
  */
-#ifdef _WIN32
-__inline int 
-#else
-inline int 
-#endif
-cm_combinations_of_alphabet (const int a_sz);
+int cm_combinations_of_alphabet (const int a_sz);
 
 /*
  * Calculates the median position in a transformation cost matrix for an
  * alphabet of size a_sz and elements a and b.
  */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_calc_median_position (SEQT a, SEQT b, int a_sz);
+int cm_calc_median_position (SEQT a, SEQT b, int a_sz);
 
 /*
  * The median between to elements in the alphabet hold by t.
@@ -186,24 +152,14 @@ cm_calc_median_position (SEQT a, SEQT b, int a_sz);
  * @return an element in the alphabet of t which is a median between a and b
  * according to the transformation cost matrix hold in t.
  */
-#ifdef _WIN32
-__inline SEQT
-#else
-inline SEQT
-#endif
-cm_get_median (const cmt t, SEQT a, SEQT b);
+SEQT cm_get_median (const cmt t, SEQT a, SEQT b);
 
 /* Add for "level"
  * Retrieves the transformation cost of the elements a and b as stored in the
  * transformation cost matrix tcm, containing information for an alphabet of
  * size mapsize. 
  */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_get_cost (int *tcm, int a, int b, int mapsize) ;
+int cm_get_cost (int *tcm, int a, int b, int mapsize) ;
 
 
 /*
@@ -211,12 +167,7 @@ cm_get_cost (int *tcm, int a, int b, int mapsize) ;
  * transformation cost matrix tcm, containing information for an alphabet of
  * size a_sz. 
  */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-cm_calc_cost (int *tcm, SEQT a, SEQT b, int a_sz);
+int cm_calc_cost (int *tcm, SEQT a, SEQT b, int a_sz);
 
 /* 
  * The transformation cost matrix, as stored in ocaml, may have the actual
@@ -285,8 +236,7 @@ cm_precalc_4algn (const cmt c, matricest to_output, const seqt s);
  * @param len is the length of the sequence that was source of the precalculated
  * matrix.
  */
-const int *
-cm_get_precal_row (const int *p, SEQT item, int len);
+const int * cm_get_precal_row (const int *p, SEQT item, int len);
 
 /** A three dimesional cost matrix 
  *
