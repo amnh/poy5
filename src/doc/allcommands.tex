@@ -2131,10 +2131,11 @@ valid optional arguments are:
 \argumentdefinition{branches}{\optional{\poylident}}
 {Reports a tree with likelihood or parsimony branch lengths included. 
 The optional \poylident values \texttt{single}, \texttt{min} or \texttt{max} 
-are available: if \texttt{single} (the default), the branch length is based on the single 
-assignment of HTU states; if \texttt{min}, the length is based on the 
+are available for parsimony branch lengths: if \texttt{single} (the default), 
+the branch length is based on the single assignment of HTU states; if \texttt{min}, the length is based on the 
 minimum possible length; and if \texttt{max}, the length is based 
-on the maximum possible length.}
+on the maximum possible length.  Only \texttt{single} should be used for
+likelihood branch lengths.}
 {}
 
 %\argumentdefinition{branches}{\optional{\poylident}}
@@ -2381,7 +2382,7 @@ occurred if the length of the single assignment on a branch was zero.}
 but also includes the total tree cost in square brackets
 following each tree.}
 
-\poyexample{report("Run2",trees:(total,branches:(collapse:false)))} 
+\poyexample{report("Run2",trees:(total,branches:true,collapse:false))} 
 {This command produces a file \texttt{Run2} that contains
 all trees in parenthetical notation, with the total tree cost in square brackets 
 following each tree. Branch lengths will also be reported.  In generating 
