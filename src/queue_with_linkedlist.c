@@ -86,12 +86,7 @@ void peekqueue(q_t thisq, QUEUE_DATA *value)
    *value = (*front)->data;
 }
 
-#ifdef _WIN32
-__inline int 
-#else
-inline int 
-#endif
-is_emptyqueue (q_t thisq)
+int is_emptyqueue (q_t thisq)
 {//maybe we should check front==rear && rear==NULL as well
     int sign1=0, sign2=0; 
     if ( thisq->size == 0 ) sign1=1;

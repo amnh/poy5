@@ -102,11 +102,7 @@ follow_deletetion (DIRECTION_MATRIX ** endp, int l, const cmt c, seqt r1, seqt r
 
 /** helper functions for traceback; used to modify variables and prepend seq
  * data for the aligned sequence data. */
-#ifdef _WIN32
-__inline void
-#else
-inline void
-#endif
+void
 follow_insertion_or_deletion (DIRECTION_MATRIX ** endp, int swaped, int l,
         const cmt c, seqt r1, seqt r2, seqt s1, seqt s2, int* algn_s1, int* algn_s2)
 {
@@ -213,11 +209,7 @@ algn_fill_gapnum (int pos, int hasalgn, int hasinsert, int hasdelete,  DIRECTION
  * the direction codes are different for three dimensional alignments.
  */
 #if ( __GNUC__ && __MMX__ )
-#ifdef _WIN32
-__inline void 
-#else
-inline void 
-#endif
+void 
 algn_fill_row (int *mm, const int *pm, const int *gap_row, const int *alg_row,
                 DIRECTION_MATRIX *dm, int c, int i, int end)
 {
@@ -926,11 +918,7 @@ algn_fill_no_extending (const seqt s1, int *prec, int s1_len, int s2_len, int *m
 }
 
 /* Simmilar to the previous but when no barriers are set */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
+int
 algn_fill_plane (const seqt s1, int *prec, int s1_len, int s2_len, int *mm,
                     DIRECTION_MATRIX *dm, const cmt c)
 {
@@ -1011,12 +999,7 @@ int backtrace_2d_gaps (const matricest m, const cmt c, int algn_s1, int algn_s2)
     return (MAX(num_deletes,num_inserts));
 }
 
-
-#ifdef _WIN32
-__inline int*
-#else
-inline int*
-#endif
+int*
 algn_newkk_fill_a_row (const seqt s1, int *prec, int *a, int * b, DIRECTION_MATRIX *dm,
         const cmt c, int s1_len, int s2_len, int i, int startj, int endj,
         int has_right_border, int has_left_border)
@@ -1071,12 +1054,7 @@ print_dm (char *title, DIRECTION_MATRIX *arr, int start,int max) {
 }
 
 
-
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
+int
 algn_newkk_test (const seqt s1, int *prec, int lenX, int lenY, matricest m,
                     const cmt c, int const *gap_row, int p, int * cost)
 { 
@@ -1131,11 +1109,7 @@ algn_newkk_test (const seqt s1, int *prec, int lenX, int lenY, matricest m,
 }
 
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
+int
 algn_newkk_increaseT (const seqt s1, int *prec, int lenX, int lenY, matricest m,
                         const cmt c, int const *gap_row, int T)
 {
@@ -1998,11 +1972,7 @@ ASSIGN_MINIMUM (int *final_cost_matrix, int extend_horizontal, int extend_vertic
 
 //[algn_fill_plane_3_aff_nobt] is the affine alignment function without backtrace
 //it is called by [algn_CAML_cost_affine_3] as cost function
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
+int
 algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj,
         const cmt c, int *extend_horizontal, int *extend_vertical, 
         int *close_block_diagonal, int *extend_block_diagonal, const int *prec,
@@ -2128,11 +2098,7 @@ algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj,
     return res;
 }
 
-#ifdef _WIN32
-__inline void
-#else
-inline void
-#endif
+void
 algn_newkk_fill_a_row_aff (int k, int baseband, int i, int start_pos, int end_pos,
         SEQT* beginj, const int * gap_row, int gap_open, int ic,int ip, int si_vertical_extension,
         int si_gap_extension, int si_gap_opening, int si_no_gap, const int* si_no_gap_vector,
@@ -2330,11 +2296,7 @@ algn_newkk_test_aff (int * res_cost, int p, const seqt si, const seqt sj, int le
 
 
 //rec function
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
+int
 algn_newkk_increaseT_aff (int T, const seqt si, const seqt sj, int leni, int lenj,
         int *final_cost_matrix, DIRECTION_MATRIX *direction_matrix,
         DIRECTION_MATRIX * gm1, DIRECTION_MATRIX * next_gm1, DIRECTION_MATRIX * gm2,
@@ -2616,14 +2578,10 @@ fill_parallel (int s3_len, const int *prev_m, const int *upper_m, \
  * g, g, s3 -> vector (the last one to be done, not parallelizable
  *
  */
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
-algn_fill_cube (const seqt s1, const seqt s2, const int *prec, \
-        int s1_len, int s2_len, int s3_len, int *mm, DIRECTION_MATRIX *dm, int uk, \
-        int gap, int a_sz) {
+int
+algn_fill_cube (const seqt s1, const seqt s2, const int *prec, int s1_len,
+    int s2_len, int s3_len, int *mm, DIRECTION_MATRIX *dm, int uk, int gap, int a_sz)
+{
     SEQT *s1p, *s2p;
     /* Each of the following arrays hold some precalculated value for the
      * sequence s3 which is not passed as argument. */
@@ -3004,11 +2962,7 @@ algn_nw (const seqt s1, const seqt s2, const cmt c,matricest m, int deltawh) {
     return (algn_nw_limit (s1, s2, c, m, deltawh, 0, seq_get_len(s1), 0, seq_get_len(s2)));
 }
 
-#ifdef _WIN32
-__inline int
-#else
-inline int
-#endif
+int
 algn_nw_3d (const seqt s1, const seqt s2, const seqt s3, const cm_3dt c, matricest m, int w) {
     int *mm, *prec, s1_len, s2_len, s3_len, gap, res;
     int uselevel;
@@ -3376,11 +3330,7 @@ algn_string_of_3d_direction (char v) {
     return "Empty";
 }
 
-#ifdef _WIN32
-__inline void
-#else
-inline void
-#endif
+void
 backtrack_3d (const seqt s1, const seqt s2, seqt s3, seqt r1, seqt r2, seqt r3,
                 matricest m, const cm_3dt c)
 {
@@ -3636,11 +3586,7 @@ algn_correct_blocks_affine (int gap, seqt s, seqt a, seqt b) {
     return;
 }
 
-#ifdef _WIN32
-__inline void
-#else
-inline void
-#endif
+void
 algn_ancestor_2 (seqt s1, seqt s2, cmt m, seqt sm ) {
     SEQT *begin1, *begin2;
     int interm;

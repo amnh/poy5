@@ -1760,11 +1760,6 @@ median_invar(const mll* a, const mll* b, mll* c){
 }
 
 
-#ifdef _WIN32
-__inline
-#else
-inline
-#endif
 void
 median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
         mll* cmll, const int cost,const int rate_idx)
@@ -2450,7 +2445,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
             d = golden * e;
         }
         /* function evaluation; replace data in u. */
-        u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
+        u = (fabs(d) >= tol) ? (MAX( BL_MIN, (x+d))) : (MAX( BL_MIN, (x+(SIGN(tol,d)))));
         single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
         fu = temp.ll;
         /** printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb); **/
@@ -2597,7 +2592,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
             d = golden * e;
         }
         /* function evaluation; replace data in u. */
-        u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
+        u = (fabs(d) >= tol) ? (MAX(BL_MIN,(x+d))) : (MAX(BL_MIN,(x+(SIGN(tol,d)))));
         single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
         fu = temp.ll;
         /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/

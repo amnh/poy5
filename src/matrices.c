@@ -68,8 +68,6 @@ __inline int
 inline int
 #endif
 mat_setup_size (matricest m, int w, int d, int h, int k, int sz, int uselevel) {
-    int debug = 0;
-    if (debug) printf ("mat setup size: w=%d,d=%d,h=%d,k=%d,sz=%d,uselevel=%d\n",w,d,h,k,sz,uselevel); 
     long int len, len_2d, len_precalc;
     long int len_dir;
     if (h == 0) {           /* If the size setup is only for 2d */
@@ -97,7 +95,6 @@ These `-m' switches are supported in addition to the above on AMD x86-64 process
 -m64
     Generate code for a 32-bit or 64-bit environment. The 32-bit environment sets int, long and pointer to 32 bits and generates code that runs on any i386 system. The 64-bit environment sets int to 32 bits and long and pointer to 64 bits and generates code for AMD's x86-64 architecture. For darwin only the -m64 option turns off the -fno-pic and -mdynamic-no-pic options. 
 */      
-    if (debug) printf("len_gapnumarr = %d, len = %d, len_eff = %d, len_dir = %d*%d = %d, len_2d = %d,len_precalc=%d\n",m->len_gapnumarr,len,m->len_eff,(w+1),(d+1),len_dir,len_2d,len_precalc);
     if (m->len_gapnumarr < d) {
         m->gap_num1 = (DIRECTION_MATRIX *) realloc (m->gap_num1, ((d) * sizeof(DIRECTION_MATRIX)));
         m->gap_num2 = (DIRECTION_MATRIX *) realloc (m->gap_num2, ((d) * sizeof(DIRECTION_MATRIX)));

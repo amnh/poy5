@@ -24,6 +24,7 @@ Bugs Fixed:
   - Certain level arguments were ignored since there are multiple ways to assign
     level arguments, through the cost matrix assignment, or as an additional
     argument (aminoacids and custom alphabet characters only).
+  - Fixed inlining C functions to support CLANG / OSX Mavericks.
 
 New Commands (see manual for full explanations):
   - Added documentation for commands in swap/build at_random, first, last. These
