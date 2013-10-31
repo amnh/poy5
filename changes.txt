@@ -1,5 +1,5 @@
 
-CHANGES BETWEEN 5.0.0 and 5.0.1 Official Releases
+CHANGES BETWEEN 5.0.0 and 5.1.0 Official Releases
 
 New Features:
   - Script Analyzer has some resolutions for parallel analysis that should
@@ -44,6 +44,10 @@ New Commands (see manual for full explanations):
     This will allow searching on the selected tree in parallel when the number
     of nodes in the MPI run is > 1. The 'all' option is recommended so that each
     node is fully utilized.
+
+Known Issues :
+  - We have experienced segmentation faults on POY compiled on OSX 10.9
+    Mavericks with clang/LLVM3.3
 
 
 
