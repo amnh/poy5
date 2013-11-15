@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3623 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3633 $"
 
 let debug = false
 
@@ -1271,9 +1271,10 @@ let rec linearize2 queue acc =
                         let unique= `UniqueNames l.Methods.keep in
                         let compl = `UnionStored :: List.rev !composerl
                         and restl = unique :: []
+                        (* assignment of names for trees; and distribution of names *)
                         and fst   = `GetStored::`GatherTrees([],[])::`ClearTrees::`StoreTrees::`AssignTreeNames::!acc
                         and nextl = nextl @ [`UnionTrees]
-                        and iteml = iteml in
+                        and iteml = `UnionTrees :: iteml in
                         let par = match l.Methods.ss with
                             | `None | `SingleNeighborhood _ ->
                                 [`Store (all_dependencies, my_name); `ParallelPipeline (1,iteml,compl,restl)]
@@ -1665,11 +1666,11 @@ let rec script_to_string (init : Methods.script) =
     | `GetStored        -> "@[Get Stored Trees@]"
     | `ClearTrees       -> "@[Clear Trees in helper nodes@]"
     | `Repeat (`Num n, comm) ->
-        let header = "@[@[ Repeat a script "^(string_of_int n)^" times@]"
+        let header = "@[@[Repeat a script "^(string_of_int n)^" times@]"
         and a_str = "@[While@]"::List.map script_to_string comm in
         String.concat " " (header :: a_str @ ["@]"])
     | `Repeat (`TreeCostConverge, comm) ->
-        let header = "@[ Repeat a script until best tree converges@]" 
+        let header = "@[@[Repeat a script until best tree converges@]" 
         and a_str = "@[While@]"::List.map script_to_string comm in
         String.concat " " (header :: a_str @ ["@]"])
     | `GatherTrees (a,b)->
