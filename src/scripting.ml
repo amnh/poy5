@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3625 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3634 $"
 
 let (-->) a b = b a
 
@@ -2183,16 +2183,17 @@ let rec process_tree_handling run meth =
               --> List.fold_left
                     (fun acc xt ->
                         let x = get_name xt in
-                        if StringOptMap.mem x acc then
+                        if StringOptMap.mem x acc then begin
                             let yt = StringOptMap.find x acc in
-                            if (variant_cost xt) < (variant_cost yt) then
+                            if (variant_cost xt) > (variant_cost yt) then
                               acc
                             else if (variant_cost xt) = (variant_cost yt) then
                               StringOptMap.add x (meth xt yt) acc
                             else
-                              StringOptMap.add x yt acc
-                          else
-                            StringOptMap.add x xt acc)
+                              StringOptMap.add x xt acc
+                          end else begin
+                            StringOptMap.add x xt acc
+                          end)
                         StringOptMap.empty
               --> (fun x -> StringOptMap.fold (fun _ x acc -> x::acc) x [])
               --> split_variant_trees
