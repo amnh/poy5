@@ -1,3 +1,12 @@
+CHANGES BETWEEN 5.1.0 and 5.1.1 Official Releases
+
+Bugs Fixed:
+  - command swap(parallel) had issues with convergence and filtering trees.
+
+Known Issues:
+  - We have experienced segmentation faults on POY compiled on OSX 10.9
+    Mavericks with clang/LLVM3.3
+
 
 CHANGES BETWEEN 5.0.0 and 5.1.0 Official Releases
 
