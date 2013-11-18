@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3634 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3635 $"
 
 let (-->) a b = b a
 
@@ -3982,20 +3982,15 @@ let rec folder (run : r) meth =
                         runs
                 in
                 choose_best trees)
-    | #Methods.runtime_store as meth -> 
-            runtime_store (update_trees_to_data false false) run meth 
+    | #Methods.runtime_store as meth ->
+            runtime_store (update_trees_to_data false false) run meth
     | `Repeat (n, comm) ->
-        debugparallel "%d REPEAT: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-        let best_tree_cost trees =
-          let costs =
-            List.sort (fun x y -> ~- (Pervasives.compare x y))
-                      (List.map (Ptree.get_cost `Adjusted)
-                                (Sexpr.to_list trees))
-          in
-          match costs with
-            | []   -> 0.0
-            | x::_ -> x
-        in
+        debugparallel "%d REPEAT: %d / %d\n%!" (fst (get_sizerank ()))
+                      (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
+        let tree_cost trees =
+            List.sort (fun x y -> (Pervasives.compare x y))
+                      (List.map (Ptree.get_cost `Adjusted) (Sexpr.to_list trees))
+        and compare_tree_costs xs ys = 0 = (Pervasives.compare xs ys) in
         begin match n with
           | `Num n ->
               let res = ref run in
@@ -4004,14 +3999,14 @@ let rec folder (run : r) meth =
               done;
               !res
           | `TreeCostConverge ->
-              let previous_tree_cost = ref max_float
-              and rrun = ref run in
-              while !previous_tree_cost > (best_tree_cost (!rrun).trees) do
+              let rrun = ref run in
+              let previous_tree_costs = ref (tree_cost (!rrun).trees) in
+              rrun := (List.fold_left folder !rrun comm);
+              while not (compare_tree_costs !previous_tree_costs (tree_cost (!rrun).trees)) do
                 begin
-                  let current_best =  best_tree_cost (!rrun).trees in
-                  previous_tree_cost := current_best;
+                  previous_tree_costs := tree_cost (!rrun).trees;
                   rrun := (List.fold_left folder !rrun comm);
-                end
+                end;
               done;
               !rrun
         end
