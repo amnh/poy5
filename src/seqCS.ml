@@ -19,7 +19,7 @@
 
 (** A Sequence Character Set implementation *)
 exception Illegal_Arguments
-let () = SadmanOutput.register "SeqCS" "$Revision: 3569 $"
+let () = SadmanOutput.register "SeqCS" "$Revision: 3637 $"
 
 let debug = false
 let debug_distance = false
@@ -2592,8 +2592,8 @@ let classify_transformations leafa seqa leafb seqb acc =
             (fun acc i c1 c2 -> 
                 let es1 = BitSet.Int.list_of_packed c1
                 and es2 = BitSet.Int.list_of_packed c2 in
-                let v1 = float_of_int (List.length es1)
-                and v2 = float_of_int (List.length es2) in
+                let v1 = 1.0 /. (float_of_int (List.length es1))
+                and v2 = 1.0 /. (float_of_int (List.length es2)) in
                 let v  = (v1 *. v2) in
                 List.fold_left2
                     (fun (t,f) e1 e2 -> 

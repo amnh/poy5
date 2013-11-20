@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3635 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3637 $"
 
 let (-->) a b = b a
 
@@ -3987,9 +3987,15 @@ let rec folder (run : r) meth =
     | `Repeat (n, comm) ->
         debugparallel "%d REPEAT: %d / %d\n%!" (fst (get_sizerank ()))
                       (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
-        let tree_cost trees =
-            List.sort (fun x y -> (Pervasives.compare x y))
-                      (List.map (Ptree.get_cost `Adjusted) (Sexpr.to_list trees))
+        let tree_cost run =
+            let res =
+              let lst =
+                  (List.map (Ptree.get_cost `Adjusted) (Sexpr.to_list run.trees))
+                @ (List.map (fun (x,_,_) -> x) (Sexpr.to_list run.stored_trees))
+              in
+              List.sort Pervasives.compare lst
+            in
+            res
         and compare_tree_costs xs ys = 0 = (Pervasives.compare xs ys) in
         begin match n with
           | `Num n ->
@@ -4000,11 +4006,11 @@ let rec folder (run : r) meth =
               !res
           | `TreeCostConverge ->
               let rrun = ref run in
-              let previous_tree_costs = ref (tree_cost (!rrun).trees) in
+              let previous_tree_costs = ref (tree_cost !rrun) in
               rrun := (List.fold_left folder !rrun comm);
-              while not (compare_tree_costs !previous_tree_costs (tree_cost (!rrun).trees)) do
+              while not (compare_tree_costs !previous_tree_costs (tree_cost !rrun)) do
                 begin
-                  previous_tree_costs := tree_cost (!rrun).trees;
+                  previous_tree_costs := tree_cost !rrun;
                   rrun := (List.fold_left folder !rrun comm);
                 end;
               done;
