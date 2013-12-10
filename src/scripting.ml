@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3637 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3638 $"
 
 let (-->) a b = b a
 
@@ -2761,6 +2761,7 @@ IFDEF USEPARALLEL THEN
                     let run = folder run [`Unique; `BestN (Some mmax)] in
                     folder run [`GatherTrees ([`Unique; `BestN (Some mmax)],[])]
             in
+            let run = folder run [`UnionTrees] in
             let run =
                 if not_final then
                     { run with trees = Sexpr.union run.trees my_trees }
