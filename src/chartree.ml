@@ -1,4 +1,4 @@
-(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
+(* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 3544 $"
+let () = SadmanOutput.register "Chartree" "$Revision: 3641 $"
 
 let info_user_message format =
     Printf.ksprintf (Status.user_message Status.Information) format

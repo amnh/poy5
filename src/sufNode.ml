@@ -1,4 +1,4 @@
-(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
+(* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SufNode" "$Revision: 3459 $"
+let () = SadmanOutput.register "SufNode" "$Revision: 3641 $"
 
 (** sufTree module implements structures and
  * functions of a node in a suffix tree. The implementations

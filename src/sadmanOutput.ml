@@ -1,4 +1,4 @@
-(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
+(* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -111,5 +111,5 @@ let runtime_properties =
     ]
 
 
-let () = register "SadmanOutput" "$Revision: 3459 $"
+let () = register "SadmanOutput" "$Revision: 3641 $"
 

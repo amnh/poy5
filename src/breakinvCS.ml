@@ -1,4 +1,4 @@
-(* POY 5.0. A phylogenetic analysis program using Dynamic Homologies.         *)
+(* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
 (* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -20,10 +20,10 @@
 (** A Breakinv character set implementation. The breakinv
 * character set allows rearrangements *)
 
-let () = SadmanOutput.register "BreakinvCS" "$Revision: 3508 $"
+let () = SadmanOutput.register "BreakinvCS" "$Revision: 3641 $"
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "Breakinv Character" "$Revision: 3508 $"
+let () = SadmanOutput.register "Breakinv Character" "$Revision: 3641 $"
 
 let debug = false
 
