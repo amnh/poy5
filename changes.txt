@@ -1,7 +1,8 @@
 CHANGES BETWEEN 5.1.0 and 5.1.1 Official Releases
 
 Bugs Fixed:
-  - command swap(parallel) had issues with convergence and filtering trees.
+  - Command swap(parallel) had issues with convergence and filtering trees.
+  - Issues with gather after parallel search procedure in certain situations.
 
 Known Issues:
   - We have experienced segmentation faults on POY compiled on OSX 10.9
