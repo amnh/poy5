@@ -118,7 +118,7 @@ AC_ARG_WITH([extras], [AS_HELP_STRING([--with-extras],
 
 AC_ARG_WITH(version-number,
             [AS_HELP_STRING([--with-version-number], [Use the configuration provided version number (used for release purposes only).])],
-            [MERCURIAL="echo $withval"],
+            [MERCURIAL="$withval"],
             [AC_CHECK_PROG([MERCURIAL],[hg],[`hg id -i`],[`cat ./VERSION | awk '{print $NF}'`])])
 
 AC_ARG_WITH([ocaml-flags], 
