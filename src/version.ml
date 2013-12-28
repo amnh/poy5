@@ -56,7 +56,7 @@ let patch_version = Str.global_replace (Str.regexp " +") ""  BuildNumber.build
 
 type release_options = Development | Candidate of int | Official
 
-let release_option = Development
+let release_option = Official
 
 let if_run a f b c = if a then f b c else c
 
