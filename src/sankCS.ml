@@ -1,5 +1,5 @@
 (* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
-(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* Copyright (C) 2014 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 3641 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 3649 $"
 
 let debug = false
 

@@ -1,5 +1,5 @@
 (* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
-(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* Copyright (C) 2014 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 3641 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 3649 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations

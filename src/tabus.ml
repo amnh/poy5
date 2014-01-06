@@ -1,5 +1,5 @@
 (* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
-(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* Copyright (C) 2014 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -21,7 +21,7 @@
  * implemented. The tabu manager specifies the order in which edges are broken by
  * the SPR and TBR search procedures. The list of edges in the tabu should always
  * match the edges in the tree. *)
-let () = SadmanOutput.register "Tabus" "$Revision: 3641 $"
+let () = SadmanOutput.register "Tabus" "$Revision: 3649 $"
 
 (* A module that provides the managers for a local search (rerooting, edge
 * breaking and joining. A tabu manager controls what edges are next ina series

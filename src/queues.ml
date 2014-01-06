@@ -1,5 +1,5 @@
 (* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
-(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* Copyright (C) 2014 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 3641 $"
+let () = SadmanOutput.register "Queues" "$Revision: 3649 $"
 
 (** {1 Types} *)
 
