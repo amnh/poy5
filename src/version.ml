@@ -91,7 +91,7 @@ let version_string =
 let version_num_string = Printf.sprintf "%d.%d.%d" major_version minor_version release_version
 
 let copyright_authors =
-    rephrase ("@[Copyright (C) 2011, 2012, 2013 Andres Varon, Nicholas Lucaroni, Lin Hong, Ward Wheeler, and the American Museum of Natural History.@]@,")
+    rephrase ("@[Copyright (C) 2011, 2012, 2013, 2014 Andres Varon, Nicholas Lucaroni, Lin Hong, Ward Wheeler, and the American Museum of Natural History.@]@,")
 
 let warrenty_information =
     rephrase ("@[POY "^ version_num_string ^" comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@,")
