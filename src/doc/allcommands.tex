@@ -651,6 +651,13 @@ By default, the number of trees retained is the same as the number
 of starting trees.}
 {}
 
+\argumentdefinition{all}{}
+{A command for parallel execution that does not divide the trees up among
+processors. By default in parallel execution, the trees are distributed as other
+search procedures. This will increase the total memory consumption and not
+recommended in execution with shared memory processors.}
+{}
+
 \argumentdefinition{optimize}{(model\optional{\poylident},branch\optional{\poylident})}
 {Specifies when the likelihood model and how the branches are
 optimized during the fuse routine. These options are also available

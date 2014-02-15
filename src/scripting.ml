@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3649 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3652 $"
 
 let (-->) a b = b a
 
@@ -3877,7 +3877,8 @@ let rec folder (run : r) meth =
     | #Methods.perturb_method as meth ->
             warn_if_no_trees_in_memory "perturb" run.trees;
             { run with trees = CT.perturbe run.data run.trees meth }
-    | `Fusing ((_, _, _, _, x, _) as params) ->
+    | `Fusing (a, b, c, d, x, e,_) ->
+            let params = (a,b,c,d,x,e) in
             debugparallel "%d FUSE: %d / %d\n%!" (fst (get_sizerank ())) (Sexpr.length run.trees) (Sexpr.length run.stored_trees);
             warn_if_no_trees_in_memory "fuse" run.trees;
             begin

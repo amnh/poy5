@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3649 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3652 $"
 
 let debug = false
 
@@ -350,7 +350,7 @@ let dependency_relations (init : Methods.script) = match init with
                 [(datantrees, [Trees], init, Linnearizable)]
         in
         res
-    | `Fusing (_, _, _, _, _, _) ->
+    | `Fusing _ ->
         [(datantrees, trees, init, NonComposable)]
     | `Bootstrap (it, _, _, _) 
     | `Jackknife (_, it, _, _, _) ->
@@ -1585,7 +1585,7 @@ let rec script_to_string (init : Methods.script) =
             | `FixImpliedAlignments _ -> "@[some obscure preturbation?"
         in
         res
-    | `Fusing (_, _, _, _, x, _) -> "@[fuse the trees I have in memory@]"
+    | `Fusing _ -> "@[fuse the trees I have in memory@]"
     | `Bootstrap (it, _, _, _) -> "@[calculate the bootstrap clades@]"
     | `Jackknife (_, it, _, _, _) -> "@[calculate the jackknife clades@]"
     | `Bremer (local_optimum, build, _, _) -> "@[calculate the bremer support values@]"
@@ -2032,9 +2032,9 @@ let rec make_remote_files (init : Methods.script) =
                 tl
             and lo = handle_lo lo in
             `PerturbateNSearch (tl, pm, lo, v, timer)
-    | `Fusing (a, b, c, d, lo, f) ->
+    | `Fusing (a, b, c, d, lo, f, x) ->
             let lo = handle_lo lo in
-            `Fusing (a, b, c, d, lo, f)
+            `Fusing (a, b, c, d, lo, f, x)
     | `Bootstrap (a, lo, bu, c) ->
             let lo = handle_lo lo
             and bu = handle_bu bu in
@@ -2093,17 +2093,19 @@ let rec parallel_analysis mine n (script : Methods.script list) =
                     [`GatherBootstrap;`Bootstrap (it,b,c,d)]
                 | `Bremer (a,b,c,d) ->
                     [`GatherBremer; `Bremer (a, b, mine, n)]
-                | `Fusing (iterations,max_trees,a,b,c,d) ->
+                | `Fusing (iterations,max_trees,a,b,c,d,e) ->
                     let merger = match max_trees with
                         | None  -> [`Unique; `UnionStored]
                         | Some x-> [`BestN max_trees;`UnionStored]
                     in
                     let meth = match iterations with
                         | None  -> meth
-                        | Some x->`Fusing (Some (my_part mine n x),max_trees,a,b,c,d)
+                        | Some x->`Fusing (Some (my_part mine n x),max_trees,a,b,c,d,e)
                     in
                     let script =
-                      [`GatherTrees (merger,[`GetStored]);meth;]
+                      if e
+                        then [`GatherTrees (merger,[`GetStored]);meth;]
+                        else [`GatherTrees (merger,[`GetStored]);meth;`SelectYourTrees]
                     in
                     script
                | `Repeat(c,script) ->

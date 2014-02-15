@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3649 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3652 $"
 
 let debug = false 
 
@@ -392,6 +392,7 @@ type renamea = [
 ]
 
 type fusea = [
+    | `All
     | `Keep of int
     | `Iterations of int
     | `Replace of [`Better | `Best]
@@ -767,36 +768,40 @@ type command = [
 
     (* Fusing *)
     let rec transform_fuse ?(iterations=None) ?(keep=None) ?(replace=`Better)
-            ?(search=`LocalOptimum swap_default_none) ?(weighting=`Uniform) ?(clades=(4,7)) =
+            ?(search=`LocalOptimum swap_default_none) ?(weighting=`Uniform)
+            ?(clades=(4,7)) ?(all=false) =
         function
-        | [] -> `Fusing (iterations, keep, weighting, replace, search, clades)
+        | [] -> `Fusing (iterations, keep, weighting, replace, search, clades, all)
         | x :: xs ->
             begin match x with
+               | `All ->
+                     let all = true in
+                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
                | `Keep keep ->
                      let keep = Some keep in
-                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
                | `Iterations iterations ->
                      let iterations = Some iterations in
-                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
                | `Replace replace ->
-                    transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+                    transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
                | `Weighting weighting ->
-                    transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+                    transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
                | `Clades (i, Some j) ->
                      let clades = (i, j) in
-                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
                | `Clades (i, None) ->
                      let clades = (i, i) in
-                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
                | `Swap swapas ->
                      let search = transform_swap_arguments swapas in
-                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+                     transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
                | `IterationF stuff -> 
                     let strat = transform_iterations stuff in
                     let search = match search with
                         | `LocalOptimum x -> `LocalOptimum {x with Methods.tabu_iterate = strat; }
                     in
-                    transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades xs
+                    transform_fuse ~iterations ~keep ~replace ~search ~weighting ~clades ~all xs
             end
 
 
@@ -1968,6 +1973,7 @@ type command = [
             fuse_argument:
                 [
                       [ LIDENT "keep"; ":"; i = INT -> `Keep (int_of_string i) ]
+                    | [ LIDENT "all" -> `All ]
                     | [ LIDENT "iterations"; ":"; i = INT -> `Iterations (int_of_string i) ]
                     | [ LIDENT "replace"; ":"; r = fuseareplace -> `Replace r]
                     | [ x = swap -> (x :> fusea) ]
