@@ -55,6 +55,14 @@ type subplex_strategy =
     }
 (** The Subplex strategy contains a simplex strategy and added features *)
 
+(** how to converge for multi-dimensional brents method *)
+type converge =
+  tol:float -> epsilon:float -> prev_array:float array -> prev_cost:float ->
+    new_array:float array -> new_cost:float -> bool
+
+val converge_one_pass : converge
+val converge_vec      : converge
+val converge_cost     : converge
 
 (** {6 Floating Point Functions} *)
 
@@ -150,7 +158,7 @@ val brents_method :
     representing a point.  (See, Numerical Recipes in C; 10.2) *)
 
 val brents_method_multi :
-    ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float 
+    ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float -> ?converge:converge
         -> (float array -> 'a * float) -> (float array * ('a * float))
             -> (float array * ('a * float))
 (** brents_method_multi ...] Generalization of the above function for brents
@@ -198,11 +206,15 @@ val subplex_method :
 
 (** {6 Unification of Optimization Strategies *)
 
+type routine = 
+  | Simplex of simplex_strategy option
+  | Subplex of subplex_strategy option
+  | BFGS    of float option
+  | Brent_Multi of converge option
+
+
 type optimization_strategy = 
-    {   routine : [ `Simplex of simplex_strategy option
-                  | `Subplex of subplex_strategy option
-                  | `BFGS    of float option
-                  | `Brent_Multi ];
+    {   routine : routine;
         (* Below are optional to use the algorithm default *)
         max_iter : int option;
         tol      : float option; 
@@ -212,7 +224,7 @@ type optimization_strategy =
     have to optimize multi-dimensional functions. *)
 
 type opt_modes =
-    [ `None
+    [ `NoOp
     | `Coarse of int option
     | `Exhaustive of int option
     | `Exhaustive_dyn of int option
@@ -222,7 +234,7 @@ val compare_opt_mode : opt_modes -> opt_modes -> int
 (** Provides an ordering of optimization modes from least intense to more intense *)
 
 val default_numerical_optimization_strategy :
-    opt_modes -> int -> optimization_strategy list
+    routine list -> opt_modes -> int -> optimization_strategy list
 (** Take the cost model of the Methods module and determine an opt strategy *)
 
 val default_number_of_passes : opt_modes -> int

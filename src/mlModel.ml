@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3649 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3653 $"
 
 open Numerical.FPInfix
 
@@ -746,6 +746,14 @@ let subst_matrix model topt =
         m
     | None ->
         m
+
+let get_optimization_method m =
+  let meth = match m.spec.cost_fn with
+  | `MAL -> [Numerical.BFGS None]
+  | `MPL -> [Numerical.Brent_Multi None; Numerical.BFGS None]
+  in
+  Numerical.default_numerical_optimization_strategy
+      meth !Methods.opt_mode (count_parameters m)
 
 
 (* print output in our nexus format or Phyml output *)
