@@ -3002,7 +3002,7 @@ fi
 
 # Check whether --with-version-number was given.
 if test "${with_version_number+set}" = set; then :
-  withval=$with_version_number; MERCURIAL="echo $withval"
+  withval=$with_version_number; MERCURIAL="$withval"
 else
   # Extract the first word of "hg", so it can be a program name with args.
 set dummy hg; ac_word=$2

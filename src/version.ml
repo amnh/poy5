@@ -1,5 +1,5 @@
 (* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
-(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* Copyright (C) 2014 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -56,7 +56,7 @@ let patch_version = Str.global_replace (Str.regexp " +") ""  BuildNumber.build
 
 type release_options = Development | Candidate of int | Official
 
-let release_option = Development
+let release_option = Official
 
 let if_run a f b c = if a then f b c else c
 
@@ -91,7 +91,7 @@ let version_string =
 let version_num_string = Printf.sprintf "%d.%d.%d" major_version minor_version release_version
 
 let copyright_authors =
-    rephrase ("@[Copyright (C) 2011, 2012, 2013 Andres Varon, Nicholas Lucaroni, Lin Hong, Ward Wheeler, and the American Museum of Natural History.@]@,")
+    rephrase ("@[Copyright (C) 2011, 2012, 2013, 2014 Andres Varon, Nicholas Lucaroni, Lin Hong, Ward Wheeler, and the American Museum of Natural History.@]@,")
 
 let warrenty_information =
     rephrase ("@[POY "^ version_num_string ^" comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@,")

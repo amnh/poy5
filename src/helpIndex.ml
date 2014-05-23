@@ -1,5 +1,5 @@
 (* POY 5.1.1. A phylogenetic analysis program using Dynamic Homologies.       *)
-(* Copyright (C) 2013 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
+(* Copyright (C) 2014 Andrés Varón, Lin Hong, Nicholas Lucaroni, Ward Wheeler,*)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -19,7 +19,7 @@
 
 (** Module for handling POY's advanced, adaptive help system *)
 
-let () = SadmanOutput.register "HelpIndex" "$Revision: 3641 $"
+let () = SadmanOutput.register "HelpIndex" "$Revision: 3649 $"
 
 let index = Help.index
 
