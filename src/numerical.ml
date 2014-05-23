@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 3641 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 3642 $"
 
 let (-->) b a = a b
 
@@ -197,6 +197,11 @@ open FPInfix
 
 (** {6 Types} *)
 
+(** How to determine convergence in a multi-dimensional atmosphere. *)
+type converge =
+  tol:float -> epsilon:float -> prev_array:float array -> prev_cost:float ->
+    new_array:float array -> new_cost:float -> bool
+
 (** Simplex strategy defines how to expand, contract, and reflect a simplex *)
 type simplex_strategy = 
     {   alpha : float;  (** The Reflection factor *)
@@ -214,14 +219,17 @@ type subplex_strategy =
         nsmax : int;                (** Maximum subspace dimension; or 5 *)
     }
 
+type routine = 
+  | Simplex of simplex_strategy option
+  | Subplex of subplex_strategy option
+  | BFGS    of float option
+  | Brent_Multi of converge option
+
 (** Define an optimization strategy. This will call the appropriate optimization
     routine with the specified parameters. A wrapper around the four methods we
     have to optimize multi-dimensional functions. *)
 type optimization_strategy = 
-    {   routine : [ `Simplex of simplex_strategy option
-                  | `Subplex of subplex_strategy option
-                  | `BFGS    of float option
-                  | `Brent_Multi ];
+    {   routine : routine;
         (* Below are optional to use the algorithm default *)
         max_iter : int option;
         tol      : float option; 
@@ -229,7 +237,7 @@ type optimization_strategy =
 
 (** Define levels of optimization for the chooser *)
 type opt_modes =
-    [ `None
+    [ `NoOp
     | `Coarse of int option
     | `Exhaustive of int option
     | `Exhaustive_dyn of int option
@@ -244,8 +252,8 @@ type 'a simplex = (float array * ('a * float)) array
 external set_tol_c_brents_method : float -> unit = "likelihood_CAML_set_tol"
 
 (** Return the default tolerance set for the opt_mode **)
-let get_tol = function
-    | `None         -> max_float
+let get_tol : opt_modes -> float = function
+    | `NoOp         -> max_float
     | `Exhaustive_dyn _
     | `Exhaustive _ -> tolerance
     | `Coarse _     -> sqrt tolerance
@@ -253,6 +261,25 @@ let get_tol = function
 
 (** get the brents tolerance for the C-Brents method in optimization branches *)
 external get_tol_c_brents_method : unit -> float = "likelihood_CAML_get_tol"
+
+let eq_float_gsl ~epsilon a b =
+  let _,exp = frexp (max (abs_float a) (abs_float b)) in
+  let delta = ldexp epsilon exp in
+  (abs_float (a-.b)) < delta
+
+(** convergence by one-pass of all parameters *)
+let converge_one_pass ~tol:_ ~epsilon:_ ~prev_array:_ ~prev_cost:_ ~new_array:_ ~new_cost:_ =
+  false
+
+(** convergence of parameters *)
+and converge_vec ~tol:_ ~epsilon ~prev_array ~prev_cost:_ ~new_array ~new_cost:_ =
+  let sub_vec x y = Array.mapi (fun i _ -> x.(i) -. y.(i)) x in
+  let diff = sub_vec prev_array new_array in
+  Array.fold_left (fun acc dx -> acc && (eq_float_gsl ~epsilon 0.0 dx)) true diff
+
+(** cost has not changed by epsilon; should be relative *)
+and converge_cost ~tol:_ ~epsilon ~prev_array:_ ~prev_cost ~new_array:_ ~new_cost =
+  eq_float_gsl ~epsilon prev_cost new_cost
 
 (** Default Simplex Strategy defined by NMS *)
 let default_simplex =
@@ -264,14 +291,6 @@ let default_subplex =
       omega = 0.1; psi = 0.25; nsmin = 2; nsmax = 5; }
 
 (** Define the default strategy from a specific routine *)
-let default_strategy ?tol ?iter routine =
-    let routine = match routine with
-        | `Simplex      -> `Simplex None
-        | `Subplex      -> `Subplex None
-        | `Brent_Multi  -> `Brent_Multi
-        | `BFGS         -> `BFGS None
-    in
-    { routine = routine; max_iter = iter; tol = tol; }
 
 
 (** {6 Numerical Functions for Optimization Routines *)
@@ -475,26 +494,27 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
     res
 
 
-(** Meta function above; we sequentially modify each variable ONCE; RAxML *)
+(** Meta function to accomidate multi-dimensional data. The converge function
+    deals with how to define convergence, by default we converge at cost. *)
 let brents_method_multi ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
-                        ?(tol=tolerance) ?(epsilon=epsilon) f orig =
-    let rec do_single i ((array,x) as data) =
-        debug_printf "Optimizing %d in %s\n%!" i (pp_farray array);
-        if i < (Array.length array) then
-            let (v,fv) =
-                brents_method ~max_iter ~v_min ~v_max ~tol ~epsilon
-                          (update_single i array) (array.(i),x)
-            in
-            let () = Array.set array i v in
-            do_single (i+1) (array,fv)
+          ?(tol=tolerance) ?(epsilon=epsilon) ?(converge=converge_cost) f orig =
+    let rec do_single costs i ((a,x) as data) =
+        let f = update_single i a in
+        let (v,fv) = brents_method ~max_iter ~v_min ~v_max ~tol ~epsilon f (a.(i),x) in
+        let () = Array.set a i v in
+        if i = (Array.length a)-1 then
+            let prev_array,prev_cost = costs in
+            if converge ~tol ~epsilon ~prev_array ~prev_cost ~new_array:a ~new_cost:(snd fv)
+                then data
+                else do_single (a,snd fv) 0 (a,fv)
         else
-            data
-    and update_single i array v =
-        let array = Array.copy array in
-        let () = Array.set array i v in
-        f array
+          do_single costs (i+1) (a,fv)
+    and update_single i a v =
+        let a = Array.copy a in
+        let () = Array.set a i v in
+        f a
     in
-    do_single 0 orig
+    do_single (fst orig,snd (snd orig)) 0 orig
 
 
 (** line search along a specified direction; Numerical Recipes in C : 9.7 *)
@@ -999,7 +1019,12 @@ let shrink_simplex simplex f strategy i_l =
     ()
 
 (** Verify that the strategy elements are consistent with their intended
-    transformation. Thus, avoids negative and fractional values in some. *)
+    transformation. Thus,
+      - alpha > 0
+      - 0 < beta < 1
+      - alpha < gamma ( .: gamma > 0)
+      - 0 < delta < 1
+    avoids negative and fractional values in some. *)
 let verify_strategy strat =
     (strat.alpha > 0.0) &&
     (strat.beta > 0.0 && strat.beta < 1.0) &&
@@ -1117,7 +1142,7 @@ let subplex_method ?(subplex_strategy=default_subplex) ?(tol=tolerance) ?(max_it
     pdfp
 
 let compare_opt_mode a b = match a,b with
-    | `None,`None
+    | `NoOp,`NoOp
     | `Coarse None, `Coarse None
     | `Custom _, `Custom _
     | `Exhaustive_dyn None, `Exhaustive_dyn None
@@ -1126,29 +1151,31 @@ let compare_opt_mode a b = match a,b with
     | `Exhaustive (Some x), `Exhaustive (Some y)
     | `Coarse (Some x), `Coarse (Some y) when x=y -> 0
     (* We order a > b if it is more exhaustive *)
-    | `Coarse _ , `None 
+    | `Coarse _ , `NoOp 
     | `Exhaustive_dyn _ , `Exhaustive _
-    | (`Exhaustive_dyn _ | `Exhaustive _), (`Coarse _ | `None) -> 1
+    | (`Exhaustive_dyn _ | `Exhaustive _), (`Coarse _ | `NoOp) -> 1
     | `Exhaustive_dyn (Some x), `Exhaustive_dyn (Some y)
     | `Exhaustive (Some x), `Exhaustive (Some y)
     | `Coarse (Some x), `Coarse (Some y) -> Pervasives.compare x y
-    | _, ( `Custom _ | `Exhaustive _ | `Exhaustive_dyn _ | `Coarse _ | `None) -> -1
+    | _, (`Custom _ | `Exhaustive _ | `Exhaustive_dyn _ | `Coarse _ | `NoOp) -> -1
 
 (** Determine the numerical optimization strategy from the methods cost mode *)
-let default_numerical_optimization_strategy o p =
+let default_numerical_optimization_strategy meths (o : opt_modes) p =
     let tol = Some (get_tol o) in
-    let meth = if p < 3 then `Brent_Multi else `BFGS in
-    match o with
-    | `None         -> []
-    | `Coarse     _ -> (default_strategy ?tol meth) :: []
-    | `Exhaustive_dyn _ -> (default_strategy meth) :: []
-    | `Exhaustive _ -> (default_strategy meth) :: []
-    | `Custom     s -> s
+    let default_strategy ?tol ?iter routine = { routine = routine; max_iter = iter; tol = tol; } in
+    List.map
+      (fun meth -> match o with
+        | `NoOp             -> []
+        | `Coarse     _     -> (default_strategy ?tol meth) :: []
+        | `Exhaustive_dyn _ -> (default_strategy meth) :: []
+        | `Exhaustive _     -> (default_strategy meth) :: []
+        | `Custom     s     -> s)
+      meths --> List.flatten
 
 (** Determine the default number of branch and model optimizations to do. These
     are related to the current optimization mode stored in Methods (usually). *)
 let default_number_of_passes = function
-    | `None                -> 0
+    | `NoOp                -> 0
     | `Coarse (Some i)
     | `Exhaustive_dyn (Some i)
     | `Exhaustive (Some i) -> i
@@ -1164,10 +1191,10 @@ let run_method opts f pfp =
         (fun pfp opt ->
             let max_iter = opt.max_iter and tol = opt.tol in
             match opt.routine with
-            | `Simplex simplex_strategy -> simplex_method ?tol ?max_iter ?simplex_strategy f pfp
-            | `Subplex subplex_strategy -> subplex_method ?tol ?max_iter ?subplex_strategy f pfp
-            | `BFGS max_step            -> bfgs_method ?max_iter ?tol ?max_step f pfp
-            | `Brent_Multi              -> brents_method_multi ?max_iter ?tol f pfp)
+            | Simplex simplex_strategy -> simplex_method ?tol ?max_iter ?simplex_strategy f pfp
+            | Subplex subplex_strategy -> subplex_method ?tol ?max_iter ?subplex_strategy f pfp
+            | BFGS max_step            -> bfgs_method ?max_iter ?tol ?max_step f pfp
+            | Brent_Multi converge     -> brents_method_multi ?max_iter ?tol ?converge f pfp)
         pfp
         opts
 

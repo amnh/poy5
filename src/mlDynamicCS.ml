@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3641 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3642 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -630,9 +630,8 @@ let readjust3_opt mine c1 c2 par t1 t2 t3 =
     let (times,(node,score)),pscore =
         let init_vec = [| t1;t2;t3 |] in
         let (_,pscore) as init_res = single_result init_vec in
-        Numerical.run_method
-            (Numerical.default_numerical_optimization_strategy !Methods.opt_mode 3)
-            single_result (init_vec,init_res),
+        Numerical.run_method (MlModel.get_optimization_method mine.model.static)
+          single_result (init_vec,init_res),
         pscore
     in
     true, pscore, score, (times.(0),times.(1),times.(2)), {mine with data = node;}

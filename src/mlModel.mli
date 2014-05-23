@@ -210,6 +210,8 @@ val subst_matrix : model -> float option ->
 (** [subst_matrix] return the substitution rate matrix; Q matrix if t = None,
     else Qt. *)
 
+val get_optimization_method : model -> Numerical.optimization_strategy list
+
 
 (** {6 Output functions *)
 

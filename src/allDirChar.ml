@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3641 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3642 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1527,8 +1527,7 @@ module F : Ptree.Tree_Operations
             let params = MlModel.get_current_parameters_for_model current_model in
             match MlModel.get_update_function_for_model current_model with
             | Some func ->
-                let opt = Numerical.default_numerical_optimization_strategy
-                                    !Methods.opt_mode (Array.length params) in
+                let opt = MlModel.get_optimization_method current_model in
                 let _,results =
                     Numerical.run_method opt (f_likelihood func tree chars current_model)
                                              (params,(tree,current_cost))
@@ -1650,9 +1649,7 @@ module F : Ptree.Tree_Operations
                     | None              -> ptree,cost
                     | Some update_model ->
                         let f = f model_init update_model in
-                        let o = Numerical.default_numerical_optimization_strategy
-                                    !Methods.opt_mode (Array.length param_init)
-                        in
+                        let o = MlModel.get_optimization_method model_init in
                         let _,res = 
                             Numerical.run_method o f (param_init,(ptree,cost))
                         in
@@ -1671,7 +1668,7 @@ module F : Ptree.Tree_Operations
                     --> fst
                     --> pick_best_root
                     --> assign_single
-            | `None -> old_tree
+            | `NoOp -> old_tree
             | (`Exhaustive _ | `Coarse _ | `Custom _) ->
                 let static_tree = optimize_static_tree old_tree in
                 old_tree
@@ -1748,7 +1745,7 @@ module F : Ptree.Tree_Operations
                 | None -> true,None,true
             in
             let do_model,do_branches =
-                if `None = !Methods.opt_mode then false,false else do_model,do_branches
+                if `NoOp = !Methods.opt_mode then false,false else do_model,do_branches
             in
             if (not do_branches) && (not do_model) then
                 tree

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3641 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3642 $"
 
 let debug = false
 
@@ -1513,7 +1513,7 @@ let rec script_to_string (init : Methods.script) =
             | `Normal_plus_Vitamines -> "@[set the cost calculation to normal+ DO@]"
             | `Normal -> "@[set the cost calculation to normal DO@]"
             | `Optimization `Coarse _ -> "@[set the optimization level to coarse@]"
-            | `Optimization `None -> "@[set the optimization level to off@]"
+            | `Optimization `NoOp -> "@[set the optimization level to off@]"
             | `Optimization `Exhaustive _ -> "@[set the optimization level to exhaustive@]"
             | `Optimization `Exhaustive_dyn _ -> "@[set the optimization level to dynamic exhaustive@]"
             | `Optimization `Custom _ -> "@[set the optimization level to custom@]"

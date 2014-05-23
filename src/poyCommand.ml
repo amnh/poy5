@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3641 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3642 $"
 
 let debug = false 
 
@@ -1646,7 +1646,7 @@ type command = [
                             | None -> None | Some x -> Some (int_of_string x)
                         in
                         `Coarse iterations ] |
-                    [ LIDENT "no_opt" -> `None ]
+                    [ LIDENT "no_opt" -> `NoOp ]
                 ];
             iterative_mode:
                 [ 
