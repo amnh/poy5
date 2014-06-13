@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 3652 $"
+let () = SadmanOutput.register "Methods" "$Revision: 3654 $"
 
 exception TimedOut
 
@@ -762,11 +762,6 @@ type 'a character_operations = [
     | `Median of ('a Sexpr.t * 'a Sexpr.t)
 ]
 
-type clear_item = [
-    | `Matrices
-    | `SequencePool
-]
-
 type 'a plugin_arguments = 
     [ `Empty
     | `Float of float 
@@ -808,7 +803,7 @@ type application = [
     | `SetSeed of int
     | `Alias of string * [ `Codon of characters | `Chars of characters]
     | `InspectFile of string
-    | `ClearMemory of clear_item list
+    | `ClearMemory
     | `Echo of (string * output_class)
     | `Algn_Newkk
     | `Algn_Normal

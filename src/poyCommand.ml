@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3653 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3654 $"
 
 let debug = false 
 
@@ -311,7 +311,7 @@ type application = [
     | `Wipe 
     | `ReDiagnose
     | `ReDiagnoseTrees
-    | `ClearMemory of Methods.clear_item list
+    | `ClearMemory
     | `ReadScript of string list
     | poy_file_commands
     | internal_memory
@@ -1140,7 +1140,7 @@ type command = [
         | `Wipe
         | `ReDiagnose
         | `ReDiagnoseTrees
-        | `ClearMemory _
+        | `ClearMemory
         | `ReadScript _
         | `Store _
         | `Discard _
@@ -1530,9 +1530,7 @@ type command = [
                         right_parenthesis -> `Set b ] |
                     [ LIDENT "redraw"; left_parenthesis; right_parenthesis -> `Redraw ] |
                     [ LIDENT "wipe"; left_parenthesis; right_parenthesis -> `Wipe ] |
-                    [ LIDENT "clear_memory"; left_parenthesis; x = LIST0 [x =
-                        clear_options -> x]
-                        SEP ","; right_parenthesis -> `ClearMemory x ] |
+                    [ LIDENT "clear_memory"; left_parenthesis; right_parenthesis -> `ClearMemory ] |
                     [ LIDENT "load"; left_parenthesis; a = STRING; 
                         right_parenthesis -> `Load a ] |
                     [ LIDENT "save"; left_parenthesis; a = STRING; 
@@ -1580,11 +1578,6 @@ type command = [
                     [ LIDENT "jackknife" -> `Jackknife ] | 
                     [ LIDENT "bremer" -> `Bremer ] |
                     [ LIDENT "bootstrap" -> `Bootstrap ] 
-                ];
-            clear_options:
-                [
-                    [ LIDENT "m" -> `Matrices ] |
-                    [ LIDENT "s" -> `SequencePool ]
                 ];
             file_comment:
                 [

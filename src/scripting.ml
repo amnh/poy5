@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3652 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3654 $"
 
 let (-->) a b = b a
 
@@ -3127,9 +3127,8 @@ let rec process_application run item =
         run
     | `Recover -> do_recovery run
     | `ClearRecovered -> Queue.clear run.queue.Sampler.queue; run
-    | `ClearMemory items -> 
-        let has_item item = List.exists (fun x -> x = item) items in
-        if has_item `Matrices then Matrix.flush ();
+    | `ClearMemory -> 
+        Matrix.flush ();
         Gc.full_major (); 
         run
     | `TimerInterval x -> Tabus.timer_interval := x; run

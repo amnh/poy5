@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Analyzer" "$Revision: 3653 $"
+let () = SadmanOutput.register "Analyzer" "$Revision: 3654 $"
 
 let debug = false
 
@@ -205,7 +205,7 @@ let dependency_relations (init : Methods.script) = match init with
                 [(output_files, output_files, init, Linnearizable)]
             | `SetSeed _
             | `Alias _
-            | `ClearMemory _
+            | `ClearMemory
             | `Recover
             | `ClearRecovered ->
                 [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
@@ -1503,7 +1503,7 @@ let rec script_to_string (init : Methods.script) =
             | `Logfile _ -> "@[change my log file@]"
             | `Alias _ -> "@[name a set of characters@]"
             | `SetSeed _ -> "@[change the random number generator's seed@]"
-            | `ClearMemory _ -> "@[cleanup the memory@]"
+            | `ClearMemory -> "@[cleanup the memory@]"
             | `Recover -> "@[recover trees from a swap@]"
             | `ClearRecovered -> "@[eliminate the trees I recovered in a swap@]"
             | `Wipe -> "@[get rid of all trees and data@]"
@@ -1841,7 +1841,7 @@ let is_master_only (init : Methods.script) = match init with
     | `Iterative _
     | `ReDiagnose
     | `ReDiagnoseTrees
-    | `ClearMemory _ 
+    | `ClearMemory
     | `Recover 
     | `ClearRecovered 
     | `Wipe 
