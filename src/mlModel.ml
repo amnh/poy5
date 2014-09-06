@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3653 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3658 $"
 
 open Numerical.FPInfix
 
@@ -1027,6 +1027,7 @@ ELSE
     let m_gtr  _ _ _ _ = lfailwith ()
     let m_file _ _ _   = lfailwith ()
     let m_jc69 _ _ _   = lfailwith ()
+    let get_optimization_method _ = lfailwith ()
 
 END
 
