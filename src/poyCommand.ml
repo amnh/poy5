@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3654 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3657 $"
 
 let debug = false 
 
@@ -2051,10 +2051,10 @@ type command = [
                 ];
         otherfiles_pre: (** subset of characters that are prealigned **)
             [   [ f = STRING -> `AutoDetect [`Local f] ] |
-                [LIDENT "nucleotide"; ":"; left_parenthesis;
+                [ LIDENT "nucleotide"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
-                [ LIDENT "nucleotide"; ":"; left_parenthesis;
+                [ LIDENT "nucleotides"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
                 [ LIDENT "custom_alphabet"; ":"; left_parenthesis;

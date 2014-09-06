@@ -2,6 +2,8 @@ CHANGES BETWEEN 5.1.1 and 5.1.2 Official Releases
 
 Bugs Fixed:
   - Supramap issue where dates in google earth are not normalized. (Thanks, Dan Janies)
+  - added 'nucleotides' for prealigned read-option
+  - removed arguments for clear_memory() command. They were unnecessary.
 
 Known Issues:
   - We have experienced segmentation faults on POY compiled on OSX 10.9
