@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3654 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3656 $"
 
 let (-->) a b = b a
 
@@ -139,7 +139,8 @@ module type S = sig
         end
 
         module TemporalGIS : sig
-            type date = (int * int * int) option (* Year month day *)
+            type date = ((int * int * int) * string) option
+              (* Year month day and raw string *)
 
             type sample = {
                 coordinates : GIS.point;
@@ -497,7 +498,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
             open GIS 
 
-            type date = (int * int * int) option 
+            type date = ((int * int * int) * string) option 
             type sample = { coordinates : GIS.point; 
             date : date}
 
@@ -505,7 +506,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 match a, b with
                 | x, None
                 | None, x -> x
-                | Some (yeara, ma, da), Some (yearb, mb, db) ->
+                | Some ((yeara, ma, da),_), Some ((yearb, mb, db),_) ->
                         if yeara = yearb then
                             if ma = mb then
                                 if da = db then a
@@ -538,11 +539,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     let line = input_line ch in
                     let comma = Str.regexp ","
                     and space = Str.regexp " " in
-                    let with_date name lat long year month day =
+                    let with_date name lat long year month day rawdate =
                         Hashtbl.add res (`String name)
                         { coordinates = 
                             { latitude = lat; longitude = long; altitude = 0.}; 
-                            date = Some (year, month, day) }
+                            date = Some ((year, month, day),rawdate) }
                     and without_date name lat long =
                         Hashtbl.add res (`String name)
                         {coordinates = 
@@ -582,11 +583,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         | [a; b; c; d] when has_date ->
                                 (match Str.split (Str.regexp "-") d with
                                 | [x; y; z] ->
-                                        with_date a (float_of_string b) 
+                                    with_date a (float_of_string b) 
                                         (float_of_string c) (int_of_string x) 
-                                        (int_of_string y) (int_of_string z)
+                                        (int_of_string y) (int_of_string z) d
                                 | _ -> 
-                                        prerr_string line;
+                                        prerr_string d;
                                         raise IllegalCVS)
                         | _ -> 
                                 prerr_string line;
@@ -1054,13 +1055,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                             - heading 0 --
                         --
                         { match gis.TemporalGIS.date with
-                        | None -> (PXML ---)
-                        | Some (y, m, d) -> 
-                                let str = 
-                                    String.concat "-" 
-                                    (List.map string_of_int [y; m; d])
-                                in
-                                (PXML -TimeSpan -"begin" {`String str} -- --)}
+                          | None -> (PXML ---)
+                          | Some (_, raw) -> (PXML -TimeSpan -"begin" {`String raw} -- --)}
                         - description { summary } --
                         - styleUrl "#00" --
                         - Style

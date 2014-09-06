@@ -87,7 +87,7 @@ type tree = (a, b) Ptree.p_tree
         end
 
         module TemporalGIS : sig
-            type date = (int * int * int) option (* Year month day *)
+            type date = ((int * int * int) * string) option (* Year month day *)
 
             type sample = {
                 coordinates : GIS.point;
