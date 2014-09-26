@@ -17,11 +17,12 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 3649 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 3661 $"
 
 (* The common files for all the status interfaces. *)
 
-external string_to_format : string -> ('a, 'b, 'c) format = "%identity"
+let string_to_format s : ('a, 'b, 'c) format =
+  Scanf.bscanf (Scanf.Scanning.from_string ("\""^s^"\"")) "%{%}" (fun x -> x)
 
 type formatter_output = | Margin of int | Compress
 

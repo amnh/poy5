@@ -4,6 +4,8 @@ Bugs Fixed:
   - Supramap issue where dates in google earth are not normalized. (Thanks, Dan Janies)
   - added 'nucleotides' for prealigned read-option
   - removed arguments for clear_memory() command. They were unnecessary.
+  - fixed issues with OCaml 4.01.0+ where format strings were not being converted
+    properly in our logging module.
 
 Known Issues:
   - We have experienced segmentation faults on POY compiled on OSX 10.9
