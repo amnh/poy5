@@ -84,7 +84,7 @@ let rec simplify tree =
             | (`S) :: a :: b :: c :: t ->
                     let a = simplify a in
                     let c = 
-                        `Lazy (Lazy.lazy_from_fun 
+                        `Lazy (Lazy.from_fun 
                         (fun () -> `Node (simplify c))) 
                     in
                     simplify (`Node (a @ [c] @ [`Node [b; c]] @ t))

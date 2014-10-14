@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3649 $"
+let () = SadmanOutput.register "Node" "$Revision: 3663 $"
 
 let infinity = float_of_int (max_int/2)
 
@@ -1889,7 +1889,7 @@ uppass. node.[has_to_single] won't include Sank, here, this has_sank should be f
         | Set a, Set b ->
             begin match a.final.smethod with
                 | `Strictly_Same ->
-                    let bls = Array.to_list (Array.create (List.length b.final.set) bl) in
+                    let bls = Array.to_list (Array.make (List.length b.final.set) bl) in
                     distance_lists a.final.set b.final.set bls 0.
                | `Any_Of _ ->
                      (* unf. we just take the full median and check the distance *)

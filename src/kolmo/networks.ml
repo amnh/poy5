@@ -152,7 +152,7 @@ module Network = struct
         let start max_levels max_offset = 
             item_processor _uniform_max max_offset 
             (Church.predecessor max_levels) identity mechanism 
-            (Array.create max_levels) Stack.empty Stack.empty sequence
+            (Array.make max_levels) Stack.empty Stack.empty sequence
         in
         let decode_offset max_levels = 
             church_stream (_uniform_max (start max_levels) 0)

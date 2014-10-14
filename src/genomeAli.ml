@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "GenomeAli" "$Revision: 3649 $"
+let () = SadmanOutput.register "GenomeAli" "$Revision: 3663 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -314,8 +314,8 @@ let assign_hom_chrom med cost_mat user_chrom_pams =
             done;
         done;
         (*chrom_cost_mat.(best_c1).(best_c2) has the min cost. *)
-        let map1_arr = Array.create num_chrom1 false in 
-        let map2_arr = Array.create num_chrom2 false in 
+        let map1_arr = Array.make num_chrom1 false in 
+        let map2_arr = Array.make num_chrom2 false in 
         for times = 0 to num_chrom2 - 1 do
             let best_c1 = ref (-1) in 
             let best_c2 = ref (-1) in

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "GenAli" "$Revision: 3649 $"
+let () = SadmanOutput.register "GenAli" "$Revision: 3663 $"
 
 (** This module implements methods to align two general
 * characters allowing rearrangements *)
@@ -204,7 +204,7 @@ circular orientation use_ukk =
               done; 
               let subseq2 = Array.sub seq2 0 (len2 + 1) in
               update subseq2; 
-              let wagner_seq2_ls = Sort.list (fun (_, c1) (_, c2) -> c1 < c2) !wagner_seq2_ls in
+              let wagner_seq2_ls = List.sort (fun (_, c1) (_, c2) -> Pervasives.compare c1 c2) !wagner_seq2_ls in
               let best_w_arr : int array array = Array.init (min kept_wag (List.length wagner_seq2_ls)) 
                         (fun p -> 
                             let w2, c = List.nth wagner_seq2_ls p in 

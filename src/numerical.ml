@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 3651 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 3663 $"
 
 let (-->) b a = a b
 
@@ -333,7 +333,7 @@ let dot_product x_array y_array =
 (** map a matrix with a function *)
 let matrix_map f mat = 
     let n1 = Array.length mat and n2 = Array.length mat.(0) in
-    let output_matrix = Array.create_matrix n1 n2 0.0 in
+    let output_matrix = Array.make_matrix n1 n2 0.0 in
     for i = 0 to n1 - 1 do for j = 0 to n2 -1 do 
         output_matrix.(i).(j) <- f i j mat.(i).(j);
     done; done;

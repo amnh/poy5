@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 3641 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 3663 $"
 
 let debug_find_local_optimum = false
 
@@ -85,7 +85,7 @@ let get_transformations (`LocalOptimum (l_opt)) =
     List.fold_right remover clist []
 
 let sets_of_consensus trees  = 
-    Lazy.lazy_from_fun 
+    Lazy.from_fun 
     (fun () ->
         let len = Sexpr.length trees 
         and trees = 

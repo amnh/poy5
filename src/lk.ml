@@ -34,7 +34,7 @@ and print_barray2 a =
     done; Printf.printf "\n"; ()
 
 let adjust_sub_matrix subst_matrix priors alpha_size = ()
-(*   let column_total = Array.create alpha_size 0.0 in
+(*   let column_total = Array.make alpha_size 0.0 in
 	for i = 0 to alpha_size - 1 do
            for j = 0 to alpha_size - 1 do
                subst_matrix.{i,j} <- subst_matrix.{i,j} /. priors.(j);
@@ -49,7 +49,7 @@ let adjust_sub_matrix subst_matrix priors alpha_size = ()
 
 (*mutiply by priors to make symmetrical and adjust such that rows sum to 1*)
 let make_symmetrical subst_matrix priors alpha_size =
-    let row_total = Array.create alpha_size 0.0 in
+    let row_total = Array.make alpha_size 0.0 in
     for i = 0 to alpha_size - 1 do
         for j = 0 to alpha_size - 1 do
             if (i <> j) then subst_matrix.(i).(j) <- subst_matrix.(i).(j) *.

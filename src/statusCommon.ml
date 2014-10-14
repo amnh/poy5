@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 3661 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 3663 $"
 
 (* The common files for all the status interfaces. *)
 
@@ -502,7 +502,7 @@ module Tables = struct
     (* Formatting and outputing tables *)
     let output f do_close closer v = 
         (* We need to set the tabs first *)
-        let widths = Array.create (Array.length v.(0)) 0 in
+        let widths = Array.make (Array.length v.(0)) 0 in
         Array.iter
             (Array.iteri
                 (fun p x -> widths.(p) <- max (String.length x) widths.(p)))

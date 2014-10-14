@@ -31,8 +31,8 @@ let set_up_params in_array =
   (*let alpha_bet_size = ref 150 in*)
   let 
      alpha_bet_size = ref 5 and
-     (*priors = Array.create !alpha_bet_size 1.0 and
-     transitions = Array.create (choose_2 !alpha_bet_size) 1.0 and*)
+     (*priors = Array.make !alpha_bet_size 1.0 and
+     transitions = Array.make (choose_2 !alpha_bet_size) 1.0 and*)
      invariant_min = ref 0.0 and
      invariant_max = ref 1.0 and
      alpha_min = ref 0.0 and
@@ -78,8 +78,8 @@ let set_up_params in_array =
             end;
   done;
   (* need to allow these to be set*)
-  let priors = Array.create !alpha_bet_size 1.0 and
-     transitions = Array.create (choose_2 !alpha_bet_size) 1.0
+  let priors = Array.make !alpha_bet_size 1.0 and
+     transitions = Array.make (choose_2 !alpha_bet_size) 1.0
      in
   (!alpha_bet_size, priors, transitions, !invariant_min, !invariant_max, !alpha_min, 
        !alpha_max, !num_rate_classes_min, !num_rate_classes_max, !iterations, !epsilon, !edge_length,
@@ -164,9 +164,9 @@ let rec gamma_variant alpha beta =
 (*Generates Dirichlet form a series of Gammas (alpha_i, 1.0) *)
 let dirichlet_variant param_array normalize =
   let n = Array.length param_array in
-  let y_array = Array.create n 0.0 and
-      x_array =  ref (Array.create n 0.0) and
-      x_array_norm = Array.create (n - 1) 0.0 and
+  let y_array = Array.make n 0.0 and
+      x_array =  ref (Array.make n 0.0) and
+      x_array_norm = Array.make (n - 1) 0.0 and
       y_sum = ref 0.0 in
   for i = 0 to n - 1 do
     y_array.(i) <- gamma_variant param_array.(i) 1.0;

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ModelSelection" "$Revision: 3649 $"
+let () = SadmanOutput.register "ModelSelection" "$Revision: 3663 $"
 
 let ndebug = true
 
@@ -405,7 +405,7 @@ struct
         let ic_name = match stats.type_ic with 
              | `AIC -> "AIC" | `AICC -> "AICc" | `BIC -> "BIC"
         in
-        let ret = Array.create (1 + (Array.length stats.tree_stats)) [||] in
+        let ret = Array.make (1 + (Array.length stats.tree_stats)) [||] in
         ret.(0) <- [| "Model"; "-log(LK)"; "K"; "N"; ic_name; "delta "^ic_name; "weight"; "cum(w)"; |];
         let warning = ref false in
         Array.fold_left

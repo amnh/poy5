@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3651 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3663 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1412,7 +1412,7 @@ module F : Ptree.Tree_Operations
             let data = { AllDirNode.unadjusted = [data]; adjusted = Some data } in
             let comp = Some ((`Edge (a, b)), data) in
             c, 
-            Lazy.lazy_from_fun
+            Lazy.from_fun
                 (fun () ->
                     Ptree.assign_root_to_connected_component handle comp c None ptree)
         else 

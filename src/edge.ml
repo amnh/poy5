@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Edge" "$Revision: 3649 $"
+let () = SadmanOutput.register "Edge" "$Revision: 3663 $"
 
 exception IllegalEdgeConversion
 
@@ -85,7 +85,7 @@ module LazyRoot (Node : NodeSig.S) :
         type e = Node.n Lazy.t
         type n = Node.n
         let has_information = true
-        let calculate a b = Lazy.lazy_from_fun (fun () -> Node.median None a b)
+        let calculate a b = Lazy.from_fun (fun () -> Node.median None a b)
         let to_node x = Lazy.force x
 
     end

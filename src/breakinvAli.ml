@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "BreakinvAli" "$Revision: 3649 $"
+let () = SadmanOutput.register "BreakinvAli" "$Revision: 3663 $"
 
 (** The implementation of funtions to calculate the cost, 
 * alignments and medians between general sequences 
@@ -570,7 +570,7 @@ let create_breakinv_test =
                          "U"|] in 
         let num_char = 27 in
         let gap_cost = 10 in 
-        let cost_mat = Array.create_matrix num_char num_char gap_cost in 
+        let cost_mat = Array.make_matrix num_char num_char gap_cost in 
         cost_mat.(num_char - 1).(num_char - 1) <- 0;
         for i = 0 to num_char - 2 do
             for j = 0 to num_char - 2 do

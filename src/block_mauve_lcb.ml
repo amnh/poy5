@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block_mauve" "$Revision: 3649 $"
+let () = SadmanOutput.register "Block_mauve" "$Revision: 3663 $"
 
 (* A.D. = Aaron E. Darling*)
 (* W = weight, R = ratio *)
@@ -1582,7 +1582,7 @@ let debug = false and debug2 = false in
     let size = List.length (List.hd lcbs) in 
     (*ok, we don't need the whole matrix, just the diagonal cells*)
     let cov_mat = Array.make_matrix size size
-    (([[]],0,0,Array.create (size+1) 1),(-1)) in
+    (([[]],0,0,Array.make (size+1) 1),(-1)) in
     let resmatrix =  Array.of_list 
         (List.map (fun lst -> Array.of_list lst) lcbs) in
     let bkmatrix,lcb2code,code2lcb = 
@@ -1758,7 +1758,7 @@ let debug = false and debug2 = false in
         let lcblen,lcbscore = get_lcblst_len_and_score [lcbkey] lcb_tbl in
         if debug2 then Printf.printf "fill in cell.%d.%d,score=%d,len=%d\n%!" i i lcbscore lcblen;
         cov_mat.(i).(i) <- ([[bkmatrix.(1).(i)]],lcbscore,lcblen,
-        Array.create (size+1) 1),(-1);
+        Array.make (size+1) 1),(-1);
     done;
     for i = 0 to size-2 do
         if debug2 then Printf.printf "fill in cell.%d.%d\n%!" i (i+1);

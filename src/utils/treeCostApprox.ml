@@ -86,7 +86,7 @@ let generate_assignments df array =
         in
         all_lifted len 0
     in
-    let res = Array.init log_len (fun _ -> Array.create total_len 0) in
+    let res = Array.init log_len (fun _ -> Array.make total_len 0) in
     for i = 0 to log_len - 2 do
         all_lifted (1 lsl i) res.(i) res.(i + 1)
     done;
@@ -403,7 +403,7 @@ let () =
                         if tmp > 8 then tmp 
                         else 8
                     in
-                    Lazy.lazy_from_fun (fun () -> Sequence.Align.cost_2
+                    Lazy.from_fun (fun () -> Sequence.Align.cost_2
                     ~deltaw:deltaw a b cm Matrix.default)))
         in
         (fun a b -> Lazy.force_val mtx.(a).(b)),

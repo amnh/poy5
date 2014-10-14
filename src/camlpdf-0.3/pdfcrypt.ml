@@ -197,7 +197,7 @@ let inv_sub_bytes () =
 
 (* Key schedule *)
 let keys =
-  Array.create 44 0l
+  Array.make 44 0l
 
 let word_of_bytes a b c d =
   let a, b, c, d =

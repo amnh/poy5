@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Profiles" "$Revision: 3649 $"
+let () = SadmanOutput.register "Profiles" "$Revision: 3663 $"
 
 (* Book keeping of the current state of the processes *)
 type condition =
@@ -39,8 +39,8 @@ let rec init_proc c it =
             Queue.push h !avail_proc;
             begin match it with
             | 0 ->
-                    all_proc := Array.create (List.length c) h;
-                    true_ranks := Array.create (List.length c) 0;
+                    all_proc := Array.make (List.length c) h;
+                    true_ranks := Array.make (List.length c) 0;
             | _ ->
                     let rank, comm = h in
                     !all_proc.(it) <- (rank, comm, Idle, Alive, _notags,

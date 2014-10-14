@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3656 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3663 $"
 
 let (-->) a b = b a
 
@@ -4824,7 +4824,7 @@ let set_console_run r = console_run_val := r
                 PTS.find_local_optimum 
                 ~base_sampler:sampler data (Sampler.create ()) 
                 (`Single tree)
-                (Lazy.lazy_from_val (All_sets.IntSet.empty)) 
+                (Lazy.from_val (All_sets.IntSet.empty)) 
                 (`LocalOptimum optarg)
             in
             Sexpr.to_list res

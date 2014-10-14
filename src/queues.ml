@@ -21,7 +21,7 @@
  * be searched. *)
 
 (* $Id: queues.ml 2272 2007-10-05 15:03:07Z andres $ *)
-let () = SadmanOutput.register "Queues" "$Revision: 3649 $"
+let () = SadmanOutput.register "Queues" "$Revision: 3663 $"
 
 (** {1 Types} *)
 
@@ -235,7 +235,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         | 0, _ -> 0, List.rev acc
                         | _, [] -> cnt, List.rev acc
                         | _, ((_, cst, c, tabu_mgr) as h) :: t -> 
-                                let acc = (((Lazy.lazy_from_val h), cst, c) :: acc) in
+                                let acc = (((Lazy.from_val h), cst, c) :: acc) in
                                 get_upto (cnt - 1) t acc
                     in
                     let cnt, tst = get_upto max tree_cost_delta_lst [] in
@@ -325,7 +325,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         in
                         if is_there_room then
                             m_max - 1 + counter, cost_for_comparisons,
-                            ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) :: 
+                            ((Lazy.from_val (a, b, c, tabu_mgr)), b, c) :: 
                                 results
                         else m_max, cur_best, results
                     end else if cost_for_comparisons < cur_best +. m_thr then begin
@@ -333,7 +333,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         * m_max *)
                         if m_max > 0 then begin
                             m_max - 1, cur_best,
-                            ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) ::
+                            ((Lazy.from_val (a, b, c, tabu_mgr)), b, c) ::
                                 results
                         end else begin
                             let is_there_room, counter, results = 
@@ -343,7 +343,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             in              
                             if is_there_room then
                                 m_max - 1 + counter, cur_best,
-                                ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) ::
+                                ((Lazy.from_val (a, b, c, tabu_mgr)), b, c) ::
                                     results
                             else m_max, cur_best, results
                         end
@@ -390,7 +390,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 | Ptree.Cost cc ->
                     let (_, real_cost, _) as v = 
                         let tabu_mgr = tabu_mgr#clone in
-                        (Lazy.lazy_from_fun (fun () ->
+                        (Lazy.from_fun (fun () ->
                         let nt, dlt = join_fn adjust_opt [] j1 j2 pt in
                         let cst = Ptree.get_cost `Adjusted nt in
                         tabu_mgr#update_join nt dlt;

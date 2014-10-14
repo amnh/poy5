@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sampler" "$Revision: 3649 $"
+let () = SadmanOutput.register "Sampler" "$Revision: 3663 $"
 
 (* The sampler module is divided in two submodules, one containing te
 * application related samplers (App), and one with research intended samplers
@@ -459,7 +459,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         inherit [Node.n, 'a] do_nothing 
 
         val mutable current_tree = None
-        val results = Array.create 20 ""
+        val results = Array.make 20 ""
         val mutable union_tree = None
 
         method private update_tree new_tree = match union_tree with
