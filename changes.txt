@@ -6,10 +6,8 @@ Bugs Fixed:
   - removed arguments for clear_memory() command. They were unnecessary.
   - fixed issues with OCaml 4.01.0+ where format strings were not being converted
     properly in our logging module.
-
-Known Issues:
-  - We have experienced segmentation faults on POY compiled on OSX 10.9
-    Mavericks with clang/LLVM3.3
+  - fixed issues with clang compilation (see clang-compatibility branch in mercurial)
+  - removed function deprecations for newer versions of OCaml
 
 
 CHANGES BETWEEN 5.1.0 and 5.1.1 Official Releases
