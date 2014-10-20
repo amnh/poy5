@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3651 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3655 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_join_fn           = false
 let debug_break_fn          = false
@@ -1020,6 +1020,24 @@ module F : Ptree.Tree_Operations
         let tree = if single then assign_single tree else tree in
         tree
 
+    let all_branch_fn branches ptree = assert false (*
+        let edge_vector = Array.of_list branches in
+        let lent_vector =
+            Array.init (Array.length edge_vector)
+                       (fun i ->
+                         let Tree.Edge (a,b) = edge_vector.(i) in
+                         AllDirNode.AllDirF.get_times_between ~adjusted=true ~inc_parsimony=false
+                              (Ptree.get_node_data a ptree) (Some (Ptree.get_node_data b ptree)))
+        in
+        let update_tree_to_vector lent_vector ptree =
+          assert false
+        in
+        let f n = let ntree = update_tree_to_vector n ptree in
+                  (ntree, Ptree.get_cost `Adjusted ntree) 
+        in
+        let (_,(p,cost)) = Numerical.bfgs_method f (f lent_vector) in
+        p *)
+
     (** We define a function that can optimize a subset of branches in the tree
         to improve the overall cost of the tree. The arguments for this function
         are as follows,
@@ -1062,8 +1080,6 @@ module F : Ptree.Tree_Operations
             (* assign the root and cost *)
             let ptree = refresh_all_edges (Some n_root) true (Some (a,b)) ptree in
             let treecost = AllDirNode.OneDirF.tree_cost None e_root in
-		let debug = false in
-	    if debug then Printf.printf "adjust_branches,asign root with (%f,None)\n%!" treecost;
             let ptree =
                 let root_edge = (Some (`Edge (a,b),n_root)) in
                 Ptree.assign_root_to_connected_component handle root_edge
@@ -1552,6 +1568,21 @@ module F : Ptree.Tree_Operations
                 if debug_model_fn then
                     info_user_message "\tOptimized Alpha to %f --> %f" best_cost (snd results);
                 results
+        in
+        (* Optimize Priors *)
+        let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
+        let best_tree, best_cost = match MlModel.get_update_function_for_priors current_model with
+          | None -> best_tree, best_cost
+          | Some func ->
+            let current_p = MlModel.get_current_parameters_for_priors current_model in
+            let _,results = 
+              let opt = MlModel.get_optimization_method current_model in
+              Numerical.run_method opt (f_likelihood func best_tree chars current_model)
+                                       (current_p,(best_tree,best_cost))
+            in
+            if debug_model_fn then
+              info_user_message "\tOptimized Priors to %f --> %f" best_cost (snd results);
+            results
         in
         if best_cost < current_cost then
             (* do an uppass for other dynamic characters *)

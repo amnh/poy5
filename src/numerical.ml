@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Numerical" "$Revision: 3651 $"
+let () = SadmanOutput.register "Numerical" "$Revision: 3655 $"
 
 let (-->) b a = a b
 
@@ -365,6 +365,42 @@ let add_veci x y =
 
 (** {6 Numerical Optimization Functions *)
 
+(*-- auxillary functions to bracket a region *)
+let rec create_initial_three_and_bracket v_min v_max f (o,(_,fo) as o') =
+    let minmax value = max (min v_max value) v_min in
+    let rec create_scaled (v,_) s = 
+        let vs = minmax (v *. s) in let fvs = f vs in
+        debug_printf "Calculated [%f,%f] in Brent\n%!" vs (snd fvs);
+        (vs,fvs)
+    and push_left a b c = (create_scaled a 0.5),a,b
+    and push_right a b c = b,c,(create_scaled c 2.0)
+    and bracket_region ((l,(_,fl)) as low) ((m,(_,fm)) as med) ((h,(_,fh)) as hi) =
+        if l =. h then (low,med,hi)       (* converged *)
+        else if fl =. fm && fm =. fh then (* converged; flat  *)
+            begin
+            debug_printf ("Cannot bracket flat region for brents method;"^^
+                          "[%f,%f] [%f,%f] [%f,%f]\n%!") l fl m fm h fh;
+            (low,med,hi)
+            end
+        else if fl <= fm && fm <= fh then (* increasing *)
+            let a,b,c = push_left low med hi in bracket_region a b c
+        else if fl >= fm && fm >= fh then (* decreasing *)
+            let a,b,c = push_right low med hi in bracket_region a b c
+        else if fm <= fl && fm <= fh then (* a bracket! *) (low,med,hi)
+        else begin (* bracketed a maximum... wut? *)
+            (* let us do something gracefully, push ourselves to the minimum
+              * on the left or right, and continue with the algorithm;
+              * priority pushes ourselves to smaller branches. *)
+            warning_message "Numerical.brent; Cannot bracket a region.";
+            if fl <= fh 
+                then let a,b,c = push_left  low med hi in bracket_region a b c
+                else let a,b,c = push_right low med hi in bracket_region a b c
+        end
+    in
+    debug_printf "Trying to bracket around %f,%f\n%!" o fo;
+    bracket_region (create_scaled o' 0.2) o' (create_scaled o' 2.0)
+
+
 (** Uses a combination of golden section searches and parabolic fits to find the
     optimal value of a function of one variable. **)
 let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
@@ -379,41 +415,8 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
     FPInfix.set_eps epsilon;
   (*-- a function that copies the sign of the second argument to the first *)
     let sign a b = if b > 0.0 then abs_float a else ~-. (abs_float a) in
-  (*-- auxillary functions to bracket a region *)
-    let rec create_initial_three_and_bracket (o,(_,fo) as o') =
-        let rec create_scaled (v,_) s = 
-            let vs = minmax (v *. s) in let fvs = f vs in
-            debug_printf "Calculated [%f,%f] in Brent\n%!" vs (snd fvs);
-            (vs,fvs)
-        and push_left a b c = (create_scaled a 0.5),a,b
-        and push_right a b c = b,c,(create_scaled c 2.0)
-        and bracket_region ((l,(_,fl)) as low) ((m,(_,fm)) as med) ((h,(_,fh)) as hi) =
-            if l =. h then (low,med,hi)       (* converged *)
-            else if fl =. fm && fm =. fh then (* converged; flat  *)
-                begin
-                debug_printf ("Cannot bracket flat region for brents method;"^^
-                              "[%f,%f] [%f,%f] [%f,%f]\n%!") l fl m fm h fh;
-                (low,med,hi)
-                end
-            else if fl <= fm && fm <= fh then (* increasing *)
-                let a,b,c = push_left low med hi in bracket_region a b c
-            else if fl >= fm && fm >= fh then (* decreasing *)
-                let a,b,c = push_right low med hi in bracket_region a b c
-            else if fm <= fl && fm <= fh then (* a bracket! *) (low,med,hi)
-            else begin (* bracketed a maximum... wut? *)
-                (* let us do something gracefully, push ourselves to the minimum
-                 * on the left or right, and continue with the algorithm;
-                 * priority pushes ourselves to smaller branches. *)
-                warning_message "Numerical.brent; Cannot bracket a region.";
-                if fl <= fh 
-                    then let a,b,c = push_left  low med hi in bracket_region a b c
-                    else let a,b,c = push_right low med hi in bracket_region a b c
-            end
-        in
-        debug_printf "Trying to bracket around %f,%f\n%!" o fo;
-        bracket_region (create_scaled o' 0.2) o' (create_scaled o' 2.0)
   (*-- brents method as in Numerical Recipe in C; 10.2 *)
-    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ( v') a b d e iters pu =
+    let rec brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ( v') a b d e iters pu =
         let (v,(_,fv))  = v' in
         debug_printf "Iteration %d, bracketing (%f,%f) with: %f,%f,%f\n%!" 
                         iters a b x w v;
@@ -485,7 +488,7 @@ let brents_method ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
             end
         end
     in
-    let (lv,_),m,(hv,_) = create_initial_three_and_bracket orig in
+    let (lv,_),m,(hv,_) = create_initial_three_and_bracket v_min v_max f orig in
     cdebug_printf "Bracketed by Brents Method : (%f,%f,%f)\n%!" lv (fst m) hv;
     let (b,(_,fb)) as res = brent m m m lv hv 0.0 0.0 0 (fst m) in
     cdebug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
@@ -515,6 +518,29 @@ let brents_method_multi ?(max_iter=200) ?(v_min=minimum) ?(v_max=300.0)
         f a
     in
     do_single (fst orig,snd (snd orig)) 0 orig
+
+(** exhaustive search over an area defined by double the bracket of the region
+   searched by brents method, reporting the output to a uniquely named file and
+   choosing the best to return. *)
+let counter = ref (~-1)
+let analyzer ?(v_min=0.0001) ?(v_max=5.0) ?(inc=0.0001) ?(epsilon=epsilon) f orig =
+  let () = incr counter in
+  let fchan = open_out ("full_" ^ (Printf.sprintf "%06d" !counter) ^ ".out") in
+  let bchan = open_out ("brent_" ^ (Printf.sprintf "%06d" !counter) ^ ".out") in
+  let f_with_out chan x =
+    let (_,y) as result = f x in
+    let () = Printf.fprintf chan "%f\t%f\n" x y in
+    result
+  in
+  let rec loop_ lower upper =
+    if lower < upper then
+      let _ = f_with_out fchan lower in
+      loop_ (lower +. inc) upper
+  in
+  let () = loop_ v_min v_max in
+  let result = brents_method ~epsilon (f_with_out bchan) orig in
+  close_out fchan; close_out bchan;
+  result
 
 
 (** line search along a specified direction; Numerical Recipes in C : 9.7 *)

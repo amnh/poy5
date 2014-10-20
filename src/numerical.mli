@@ -167,6 +167,12 @@ val brents_method_multi :
     need to calculate the derivative of a vector which can be costly and may not
     work on routines with a number of discontinuities. *)
 
+val analyzer : 
+  ?v_min:float -> ?v_max:float -> ?inc:float -> ?epsilon:float
+    -> (float -> 'a * float) -> (float * ('a * float)) -> (float * ('a * float))
+(** analyze a function, and then call brents method and to see it's function
+    calls and how it reacts to the function in question. *)
+
 (* Not necessary to be exposed; here in case a situation requires it.
 val line_search :
     ?epsilon:float -> (float array -> 'a * float) -> float array -> 

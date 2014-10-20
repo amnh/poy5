@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3651 $"
+let () = SadmanOutput.register "MlDynamicCS" "$Revision: 3655 $"
 
 (*---- non-external helper functions/settings *)
 open Numerical.FPInfix
@@ -556,8 +556,9 @@ let readjust c1 c2 mine t1 t2 =
         let d = median (code mine) c1 c2 (Some t) (Some t2) in
         (d,total_cost d)
     in
-    let nt,(nmine,ncost) = 
-        Numerical.brents_method internal_loop (t1,(mine,total_cost mine))
+    let nt,(nmine,ncost) =
+(*         Numerical.brents_method internal_loop (t1,(mine,total_cost mine)) *)
+        Numerical.analyzer internal_loop (t1,(mine,total_cost mine))
     in
     if debug_est then
         Printf.printf "Optimized Branch: %f -(%f->%f)-> %f\n%!" 

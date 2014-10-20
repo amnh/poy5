@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 3649 $"
+let () = SadmanOutput.register "Node" "$Revision: 3655 $"
 
 let infinity = float_of_int (max_int/2)
 
@@ -1004,7 +1004,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     in
                     let fstart = pm.preliminary,MlStaticCS.root_cost pm.preliminary in
                     let (v,(dv,fv)) =
-                        Numerical.brents_method calculate_single (t1+.t2,fstart)
+(*                         Numerical.brents_method calculate_single (t1+.t2,fstart) *)
+                         Numerical.analyzer calculate_single (t1+.t2,fstart)
                     in
                     let cost = fv *. bm.weight in
                     { pm with preliminary = dv; final = dv;

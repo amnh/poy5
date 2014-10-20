@@ -16,9 +16,11 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 3649 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3655 $"
 
 let compress = true
+
+let use_ocaml_readjust = false
 
 IFDEF USE_LIKELIHOOD THEN
 let failwithf format = Printf.ksprintf failwith format
@@ -473,7 +475,7 @@ let of_parser spec weights characters =
     in
     assert( a_size = (Bigarray.Array1.dim computed_model.MlModel.pi_0) );
     (* loop to create array for each character *)
-    let loop_ (states,_) = match states with 
+    let loop_ (states,_) = match states with
         | None -> Array.make a_size 1.0
         | Some s ->
             let lst = Nexus.File.static_state_to_list s in
@@ -574,7 +576,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
 
 (* ------------------------------------------------------------------------- *)
 (* readjust the branch lengths to create better mle score *)
-let readjust xopt x c1 c2 mine c_t1 c_t2 =
+let readjust_c xopt x c1 c2 mine c_t1 c_t2 =
     (* copy characters to a new set *)
     let new_mine = {mine with chars = copy mine.chars} in
     let model = c1.model in
@@ -600,6 +602,23 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
         let x = Array.fold_right (* bottle neck? *)
                 (fun (c,_) s -> All_sets.Integers.add c s) new_mine.codes x in
         (x,new_mine.mle,nl,(nta,ntb), {new_mine with mle = nl;} )
+
+let readjust_ocaml xopt x c1 c2 mine c_t1 c_t2 =
+    (* Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle; *)
+    let (nta,(new_mine,nl)) =
+        let f nt1 = let x = median2 c1 c2 nt1 c_t2 0 0 in x, x.mle in
+        Numerical.analyzer f (c_t1,f c_t1)
+    and ntb = c_t2 in
+    (* Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl; *)
+    if nta =. c_t1 then
+        (x,new_mine.mle,new_mine.mle,(c_t1,c_t2),new_mine)
+    else
+        let x = Array.fold_right (* bottle neck? *)
+                (fun (c,_) s -> All_sets.Integers.add c s) new_mine.codes x in
+        (x,new_mine.mle,nl,(nta,ntb), {new_mine with mle = nl;} )
+    
+let readjust = 
+  if use_ocaml_readjust then readjust_ocaml else readjust_c
 
 (* ------------------------------------------------------------------------- *)
 (* extract maximum state from all the characters *)

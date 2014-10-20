@@ -2405,7 +2405,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     }
 
     /* if( iter >= MAX_ITER ){ printf("HIT MAX COUNT IN BRENT w/ BRACKETING!\n"); }*/
-    /* printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb); */
+    printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb);
     /* we have a bracketed region; (a < b < c) && (fa > fb < fc) */
     v=w=x;
     fv=fw=fx;
@@ -2448,7 +2448,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
         u = (fabs(d) >= tol) ? (MAX( BL_MIN, (x+d))) : (MAX( BL_MIN, (x+(SIGN(tol,d)))));
         single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
         fu = temp.ll;
-        /** printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb); **/
+        printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);
 
         /* Determine Convergence to a singularity */
         if( pu == u ){

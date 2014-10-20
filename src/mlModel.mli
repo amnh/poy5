@@ -249,6 +249,10 @@ val get_update_function_for_alpha    : model -> (model -> float -> model) option
 val get_current_parameters_for_alpha : model -> float option
 (** [get_current_parameters_for_alpha] return the alpha parameter if it exists *) 
 
+val get_update_function_for_priors : model -> (model -> float array -> model) option
+
+val get_current_parameters_for_priors : model -> float array
+
 
 (** {6 Matrix conversions *)
 

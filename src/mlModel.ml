@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3653 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3655 $"
 
 open Numerical.FPInfix
 
@@ -1985,4 +1985,29 @@ and get_current_parameters_for_alpha model =
         | Constant -> None
   ELSE
     None
+  END
+
+let get_update_function_for_priors model =
+  IFDEF USE_LIKELIHOOD THEN
+    match model.spec.base_priors with
+      | Given _ | Equal -> None
+      | Estimated x ->
+        let len = (Array.length x) -1 in
+        Some
+          (fun pm n ->
+            let x = Array.fold_left (fun a x -> a +. x) 0.0 x in
+            let x = 1.0 -. x in
+            let v = Array.init len (fun i -> if i = len then x else n.(i)) in
+            {pm.spec with base_priors = Estimated v} --> create)
+  ELSE
+    None
+  END
+
+and get_current_parameters_for_priors model =
+  IFDEF USE_LIKELIHOOD THEN
+    match model.spec.base_priors with
+      | Given _ | Equal -> [||]
+      | Estimated x -> Array.sub x 0 ((Array.length x)-1)
+  ELSE
+    [||]
   END
