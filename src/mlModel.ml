@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3655 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3670 $"
 
 open Numerical.FPInfix
 
@@ -672,7 +672,7 @@ let process_custom_model alph_size (f_aa: char array array) =
             (!found)
             (0,!assoc)
     in
-    (map, Array.create length 1.0)
+    (map, Array.make length 1.0)
 
 
 
@@ -1027,6 +1027,7 @@ ELSE
     let m_gtr  _ _ _ _ = lfailwith ()
     let m_file _ _ _   = lfailwith ()
     let m_jc69 _ _ _   = lfailwith ()
+    let get_optimization_method _ = lfailwith ()
 
 END
 

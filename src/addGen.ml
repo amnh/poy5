@@ -102,7 +102,7 @@ let create mins maxs =
     assert( (Array.length mins ) = (Array.length maxs) );
     { min_state = mins; 
       max_state = maxs;
-           cost = Array.create (Array.length mins) 0;
+           cost = Array.make (Array.length mins) 0;
           total = 0.0; }
 
 (** Set the value at [i] in [x] to ([x_min],[x_max]) *)

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SparceMatrix" "$Revision: 3649 $"
+let () = SadmanOutput.register "SparceMatrix" "$Revision: 3663 $"
 
 (* SparceMatrix provides a simple matrix for which some
 columns and rows can be added and removed every now and then. Instead of
@@ -96,7 +96,7 @@ let add x f m =
     let row, matrix = 
         All_sets.Integers.fold 
         (fun y (row, matrix) ->
-            let dir1 = Lazy.lazy_from_fun (fun () -> f x y) in
+            let dir1 = Lazy.from_fun (fun () -> f x y) in
             (All_sets.IntegerMap.add y dir1 row),
             (
                 All_sets.IntegerMap.add x

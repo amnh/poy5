@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block" "$Revision: 3649 $"
+let () = SadmanOutput.register "Block" "$Revision: 3663 $"
 
 (** Blocks are conserved areas between two chromosomes
 * which do not require identical nucleotide segments but 
@@ -494,7 +494,7 @@ let is_inside (seed : seed_t) (block : block_t) =
 let determine_separated_subseq (block_ls : block_t list) (order : order_t)
         (max_pos : int) subseq_type : subseq_t list = 
     (* create the label_arr.(pos) -> list of blocks containing this position*)
-    let label_arr = Array.create (max_pos + 2) [] in        
+    let label_arr = Array.make (max_pos + 2) [] in        
     let rec create_label (block : block_t) = 
         if block.is_dum = false then 
         begin

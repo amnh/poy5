@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Cost_matrix" "$Revision: 3649 $"
+let () = SadmanOutput.register "Cost_matrix" "$Revision: 3663 $"
 
 external init : unit -> unit = "cm_CAML_initialize"
 let () = init ()
@@ -1743,7 +1743,7 @@ module Three_D = struct
     let default_nucleotides = default
     (* This is lazy because the POY initialization would take too long *)
     let default_aminoacids = 
-        Lazy.lazy_from_fun
+        Lazy.from_fun
             (fun () -> 
                 let st =
                     Status.create

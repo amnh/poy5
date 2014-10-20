@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 3655 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3670 $"
 
 let compress = true
 
@@ -440,14 +440,14 @@ let of_parser_simple seq model =
         in
         ss  --> List.map loop_
             --> Array.of_list
-            --> Array.create 1
+            --> Array.make 1
             --> Bigarray.Array3.of_array Bigarray.float64 Bigarray.c_layout
     in
     let seq   = to_str_list seq in
     let nchar = List.length seq in
     let chars = load_characters (MlModel.get_alphabet model) seq in
     let wghts = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout 
-                                         (Array.create nchar 1.0) in
+                                         (Array.make nchar 1.0) in
     let schar = bigarray_s chars None  (MlModel.get_costfn_code model) in
     let loglk = 
         loglikelihood schar wghts model.MlModel.pi_0

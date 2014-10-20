@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirNode" "$Revision: 3649 $"
+let () = SadmanOutput.register "AllDirNode" "$Revision: 3663 $"
 
 let eager        = false
 let uppass_debug = false
@@ -66,10 +66,10 @@ let force_opt = function
 
 let lazy_from_fun x =
     if eager then
-        let l = Lazy (Lazy.lazy_from_fun x) in
+        let l = Lazy (Lazy.from_fun x) in
         Eager (force_val l)
     else
-        Lazy (Lazy.lazy_from_fun x)
+        Lazy (Lazy.from_fun x)
     
 let lazy_from_val x = Eager x
 

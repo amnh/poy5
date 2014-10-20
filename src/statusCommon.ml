@@ -17,11 +17,12 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 3649 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 3668 $"
 
 (* The common files for all the status interfaces. *)
 
-external string_to_format : string -> ('a, 'b, 'c) format = "%identity"
+let string_to_format s : ('a, 'b, 'c) format =
+  Scanf.bscanf (Scanf.Scanning.from_string ("\""^s^"\"")) "%{%}" (fun x -> x)
 
 type formatter_output = | Margin of int | Compress
 
@@ -41,13 +42,11 @@ module CommandCompletion = struct
         "_random";
         "_rootuniondistr";
         "_unionstats";
-        "albert";
         "all";
         "all_roots";
         "alphabetic_terminals";
         "alternate";
         "aminoacids";
-        "annchrom_to_breakinv";
         "annealing";
         "annotated";
         "approximate";
@@ -67,6 +66,7 @@ module CommandCompletion = struct
         "bremer";
         "build";
         "calculate_support";
+        "caprara";
         "cd";
         "characters";
         "chrom_breakpoint";
@@ -109,7 +109,6 @@ module CommandCompletion = struct
         "files";
         "first";
         "fixed_states";
-        "forest";
         "fuse";
         "gamma";
         "gap_opening";
@@ -501,7 +500,7 @@ module Tables = struct
     (* Formatting and outputing tables *)
     let output f do_close closer v = 
         (* We need to set the tabs first *)
-        let widths = Array.create (Array.length v.(0)) 0 in
+        let widths = Array.make (Array.length v.(0)) 0 in
         Array.iter
             (Array.iteri
                 (fun p x -> widths.(p) <- max (String.length x) widths.(p)))

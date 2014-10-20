@@ -38,7 +38,7 @@ let mandel_row (x0,y0,x1,y1) n res j =
   let dx = (x1-.x0)/.(float n) in
   let dy = (y1-.y0)/.(float n) in
   let zi = y0 +. (dy *. (float j)) in
-  let line = Array.create n black in
+  let line = Array.make n black in
   for i = 0 to n - 1 do
     let zr = x0 +. (dx *. (float i)) in
     line.(i) <- colorof (color_pixel zr zi res) res

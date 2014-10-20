@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StaMat" "$Revision: 3649 $"
+let () = SadmanOutput.register "StaMat" "$Revision: 3663 $"
 (** Statically local alignment:
  * This module concerns about the statistical significance of local
  * alignments. The local alignments which are statistically significant are used
@@ -91,7 +91,7 @@ let find_K (lambda : float) (score_mat : Cost_matrix.Two_D.m)
 
         (* We have to shift because the starting point of array is 0*)
         let shift = abs(min_S_k) in 
-        let pre_prob_S_k_arr = ref (Array.create (abs(min_S_k) + 
+        let pre_prob_S_k_arr = ref (Array.make (abs(min_S_k) + 
                                       abs(max_S_k) + 1) 0.0) in 
         !pre_prob_S_k_arr.(0 + shift) <- 1.0;
         
@@ -99,7 +99,7 @@ let find_K (lambda : float) (score_mat : Cost_matrix.Two_D.m)
         let compute_numerator () = 
             let numerator = ref 0.0 in
             for k = 1 to converged_k do
-                let prob_S_k_arr = Array.create (abs(min_S_k) + 
+                let prob_S_k_arr = Array.make (abs(min_S_k) + 
                                                      abs(max_S_k) + 1) 0.0 in 
                 for value = min_S_k + abs(!min_score) to
                     max_S_k - abs(!max_score) do

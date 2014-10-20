@@ -50,7 +50,7 @@ let major_version = 5
 
 let minor_version = 1
 
-let release_version = 1
+let release_version = 2
 
 let patch_version = Str.global_replace (Str.regexp " +") ""  BuildNumber.build
 

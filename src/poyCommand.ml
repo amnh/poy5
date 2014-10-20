@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3654 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3668 $"
 
 let debug = false 
 
@@ -1331,7 +1331,7 @@ type command = [
                     [ LIDENT "likelihood"; ":"; left_parenthesis;
                         lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
                             process_likelihood_commands false lst ] |
-                    [ LIDENT "prealigned" -> `Prealigned_Transform ] |
+                    [ LIDENT "_prealigned" -> `Prealigned_Transform ] |
                     [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                     [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
                     [ LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
@@ -1657,13 +1657,6 @@ type command = [
                             | None -> None | Some x -> Some (int_of_string x) in
                         `ApproxD iterations ]
                 ];
-            (* Reporting *)
-            report:
-                [
-                    [ LIDENT "report"; 
-                        left_parenthesis; a = LIST0 [x = report_argument -> x] SEP ","; 
-                        right_parenthesis -> `Report a ]
-                ];
             topology_test_params : 
                 [   [ LIDENT "sh" -> `SH ] |
                     [ LIDENT "kh" -> `KH ] |
@@ -1677,6 +1670,13 @@ type command = [
                 [ [ left_parenthesis;
                         x = LIST0 [x = topology_test_params -> x] SEP ",";
                     right_parenthesis -> x ]
+                ];
+            (* Reporting *)
+            report:
+                [
+                    [ LIDENT "report"; 
+                        left_parenthesis; a = LIST0 [x = report_argument -> x] SEP ","; 
+                        right_parenthesis -> `Report a ]
                 ];
             report_argument:
                 [
@@ -1751,8 +1751,8 @@ type command = [
                     [ LIDENT "ia" -> `Implied_Alignments (`All, true) ] |
                     [ LIDENT "nodes" -> `Nodes ] |
                     [ LIDENT "cross_references"; ":"; x = old_identifiers -> `CrossReferences (Some x) ] |
-                    [ LIDENT "terminals" -> `TerminalsFiles ] | 
                     [ LIDENT "cross_references" -> `CrossReferences None ] |
+                    [ LIDENT "terminals" -> `TerminalsFiles ] | 
                     [ LIDENT "robinson_foulds" -> `RobinsonFoulds ]
                 ];
             (* Perturbation method *)
@@ -2051,10 +2051,10 @@ type command = [
                 ];
         otherfiles_pre: (** subset of characters that are prealigned **)
             [   [ f = STRING -> `AutoDetect [`Local f] ] |
-                [LIDENT "nucleotide"; ":"; left_parenthesis;
+                [ LIDENT "nucleotide"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
-                [ LIDENT "nucleotide"; ":"; left_parenthesis;
+                [ LIDENT "nucleotides"; ":"; left_parenthesis;
                     a = LIST1 [x = STRING -> x] SEP ","; right_parenthesis ->
                         `Nucleotides (to_local a) ] |
                 [ LIDENT "custom_alphabet"; ":"; left_parenthesis;
@@ -2273,10 +2273,10 @@ type command = [
                 [ x = keep_method -> (x :> swapa) ] |
                 [ x = threshold_and_trees -> (x :> swapa) ] |
                 [ x = transform -> (x :> swapa) ] |
-                [ LIDENT "forest"; a = OPT optional_integer_or_float -> 
+         (*     [ LIDENT "forest"; a = OPT optional_integer_or_float -> 
                     match a with
                     | None -> `Forest 0.
-                    | Some a -> `Forest (float_of_string a) ] |   
+                    | Some a -> `Forest (float_of_string a) ] |  *)
                 [ LIDENT "parallel" -> `Parallel true] |
                 [ a = trajectory_method -> a ] |
                 [ a = break_method -> a ] |
