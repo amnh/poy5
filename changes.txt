@@ -9,6 +9,9 @@ Bugs Fixed:
   - fixed issues with clang compilation (see clang-compatibility branch in mercurial)
   - removed function deprecations for newer versions of OCaml
 
+Command Changes
+  - removed transform(prealigned) -- confusion with transform(ia).
+
 
 CHANGES BETWEEN 5.1.0 and 5.1.1 Official Releases
 

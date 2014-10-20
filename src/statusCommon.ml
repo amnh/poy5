@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 3663 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 3668 $"
 
 (* The common files for all the status interfaces. *)
 
@@ -42,13 +42,11 @@ module CommandCompletion = struct
         "_random";
         "_rootuniondistr";
         "_unionstats";
-        "albert";
         "all";
         "all_roots";
         "alphabetic_terminals";
         "alternate";
         "aminoacids";
-        "annchrom_to_breakinv";
         "annealing";
         "annotated";
         "approximate";
@@ -68,6 +66,7 @@ module CommandCompletion = struct
         "bremer";
         "build";
         "calculate_support";
+        "caprara";
         "cd";
         "characters";
         "chrom_breakpoint";
@@ -110,7 +109,6 @@ module CommandCompletion = struct
         "files";
         "first";
         "fixed_states";
-        "forest";
         "fuse";
         "gamma";
         "gap_opening";
