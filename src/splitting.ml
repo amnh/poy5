@@ -497,25 +497,7 @@ let split_paths lst =
 
 let do_splits minlen a b lst seqs = 
     let lst = split_paths lst in
-    let lst = List.filter (fun x ->  
-        let len = List.length x in
-        minlen <= len) lst in
-    let () = 
-        match lst with
-        | [x] -> 
-                let lena = float_of_int (Sequence.length a)
-                and lenb = float_of_int (Sequence.length b)
-                and lenx = float_of_int (List.length x) in
-                let lena, lenb = (max lena lenb), (min lena lenb) in
-                if lena <= (1.1 *. lenb) && (lenx *. 1.1) >= lena then
-                    Status.user_message
-                    Status.Information
-                    ("This sequence can be analyzed prealigned. For this " ^
-                    "reason I will not break it, instead, use the " ^
-                    "transform (prealigned) command. See the program " ^
-                    "documentation.")
-        | _ -> ()
-    in
+    let lst = List.filter (fun x -> let len = List.length x in minlen <= len) lst in
     let lst = List.map (fun x -> 
         let (a, b, c) = List.hd x in
         a :: (c @ [b])) lst 
