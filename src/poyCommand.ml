@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3668 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3674 $"
 
 let debug = false 
 
@@ -1332,8 +1332,8 @@ type command = [
                         lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
                             process_likelihood_commands false lst ] |
                     [ LIDENT "_prealigned" -> `Prealigned_Transform ] |
-                    [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
-                    [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
+                    (* [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] | *)
+                    (* [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] | *)
                     [ LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
                     [ LIDENT "tcm"; ":"; left_parenthesis; 
                          x = tcm_arguments; right_parenthesis -> x ] |
@@ -2130,7 +2130,7 @@ type command = [
                   end
                 ] |
                 [LIDENT "level"; ":"; x = level_and_tiebreaker -> [`Level x]] |
-                [LIDENT "tie_breaker"; ":"; x = keep_method -> [`Tie_Breaker x]] |
+                [LIDENT "tiebreaker"; ":"; x = keep_method -> [`Tie_Breaker x]] |
                 [LIDENT "gap_opening"; ":"; x = INT -> [`Affine (int_of_string x)]]
             ];
         tree_information_list:

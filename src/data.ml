@@ -6378,9 +6378,8 @@ let randomize_taxon_codes meth data =
     let f = match meth with
         | `RandomizedTerminals -> Array_ops.randomize 
         | `AlphabeticTerminals ->
-                Array.stable_sort ~cmp:(fun a b ->
-                    String.compare (code_taxon a data) (code_taxon b
-                    data)) 
+            Array.stable_sort ~cmp:(fun a b ->
+                String.compare (code_taxon a data) (code_taxon b data)) 
     in
     change_taxon_codes f data
 
