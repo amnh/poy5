@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3670 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3672 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1515,8 +1515,8 @@ module F : Ptree.Tree_Operations
     (* ----------------- *)
     (* function to adjust the likelihood model ;for static characters of a tree
      * using BFGS --quasi newtons method. Function requires three directions. *)
-    let static_model_chars_fn chars tree = 
-        assert( using_likelihood `Static tree );
+    let static_model_chars_fn chars current_tree = 
+        assert( using_likelihood `Static current_tree );
         (* replace nodes in a tree, copying relevent data structures *)
         let substitute_nodes nodes tree =
             let adder acc x = IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
@@ -1534,29 +1534,29 @@ module F : Ptree.Tree_Operations
             in
             let ncost = Ptree.get_cost `Adjusted ntree in
             ntree,ncost
-        and get_some = function | Some x -> x | None -> raise Not_found in
+        and get_some = function | Some x -> x | None -> raise Not_found
         (* compose above functions to initiate adjustments *)
-        let current_model = Data.get_likelihood_model tree.Ptree.data chars
-        and current_cost = Ptree.get_cost `Adjusted tree in
+        and current_cost = Ptree.get_cost `Adjusted current_tree in
+        let best_tree = current_tree and best_cost = current_cost in
         (* optimize Transition Model parameters *)
         let best_tree, best_cost =
+            let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
             let params = MlModel.get_current_parameters_for_model current_model in
             match MlModel.get_update_function_for_model current_model with
+            | None -> (best_tree,best_cost)
             | Some func ->
                 let opt = MlModel.get_optimization_method current_model in
                 let _,results =
-                    Numerical.run_method opt (f_likelihood func tree chars current_model)
-                                             (params,(tree,current_cost))
+                    Numerical.run_method opt (f_likelihood func best_tree chars current_model)
+                                             (params,(best_tree,best_cost))
                 in
                 if debug_model_fn then
-                    info_user_message "\tOptimized Rates to %f --> %f"
-                                      current_cost (snd results);
+                    info_user_message "\tOptimized Rates to %f --> %f" current_cost (snd results);
                 results
-            | None -> (tree,current_cost)
         in
         (* Optimize Alpha *)
-        let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
         let best_tree, best_cost =
+            let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
             match MlModel.get_update_function_for_alpha current_model with
             | None      -> best_tree,best_cost
             | Some func ->
@@ -1570,25 +1570,25 @@ module F : Ptree.Tree_Operations
                 results
         in
         (* Optimize Priors *)
-        let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
-        let best_tree, best_cost = match MlModel.get_update_function_for_priors current_model with
-          | None -> best_tree, best_cost
-          | Some func ->
-            let current_p = MlModel.get_current_parameters_for_priors current_model in
-            let _,results = 
-              let opt = MlModel.get_optimization_method current_model in
-              Numerical.run_method opt (f_likelihood func best_tree chars current_model)
-                                       (current_p,(best_tree,best_cost))
-            in
-            if debug_model_fn then
-              info_user_message "\tOptimized Priors to %f --> %f" best_cost (snd results);
-            results
+        let best_tree, best_cost =
+            let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
+            match MlModel.get_update_function_for_priors current_model with
+            | None -> best_tree, best_cost
+            | Some func ->
+                let current_p = MlModel.get_current_parameters_for_priors current_model in
+                let _,results = 
+                    Numerical.bfgs_method ~max_step:0.1 (f_likelihood func best_tree chars current_model)
+                                                        (current_p,(best_tree,best_cost))
+                in
+                if debug_model_fn then
+                    info_user_message "\tOptimized Priors to %f --> %f" best_cost (snd results);
+                results
         in
         if best_cost < current_cost then
             (* do an uppass for other dynamic characters *)
             best_tree --> pick_best_root --> assign_single
         else
-            tree
+            current_tree
 
     (* Group all the characters and optimize each with function above *)
     let static_model_fn tree = 

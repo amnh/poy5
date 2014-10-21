@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "MlModel" "$Revision: 3670 $"
+let () = SadmanOutput.register "MlModel" "$Revision: 3672 $"
 
 open Numerical.FPInfix
 
@@ -1993,13 +1993,12 @@ let get_update_function_for_priors model =
     match model.spec.base_priors with
       | Given _ | Equal -> None
       | Estimated x ->
-        let len = (Array.length x) -1 in
+        let olen = (Array.length x) -1 and len = Array.length x in
         Some
           (fun pm n ->
-            let x = Array.fold_left (fun a x -> a +. x) 0.0 x in
-            let x = 1.0 -. x in
-            let v = Array.init len (fun i -> if i = len then x else n.(i)) in
-            {pm.spec with base_priors = Estimated v} --> create)
+            let s = Array.fold_left (fun a x -> a +. x) 0.0 n in
+            let n = Array.init len (fun i -> if i = olen then (1.0-.s) else n.(i)) in
+            {pm.spec with base_priors = Estimated n} --> create)
   ELSE
     None
   END
