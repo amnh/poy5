@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 3672 $"
+let () = SadmanOutput.register "AllDirChar" "$Revision: 3676 $"
 
 module IntSet = All_sets.Integers
 module IntMap = All_sets.IntegerMap
@@ -1026,7 +1026,7 @@ module F : Ptree.Tree_Operations
             Array.init (Array.length edge_vector)
                        (fun i ->
                          let Tree.Edge (a,b) = edge_vector.(i) in
-                         AllDirNode.AllDirF.get_times_between ~adjusted=true ~inc_parsimony=false
+                         AllDirNode.AllDirF.get_times_between ~adjusted:true
                               (Ptree.get_node_data a ptree) (Some (Ptree.get_node_data b ptree)))
         in
         let update_tree_to_vector lent_vector ptree =
@@ -1035,7 +1035,7 @@ module F : Ptree.Tree_Operations
         let f n = let ntree = update_tree_to_vector n ptree in
                   (ntree, Ptree.get_cost `Adjusted ntree) 
         in
-        let (_,(p,cost)) = Numerical.bfgs_method f (f lent_vector) in
+        let (_,(p,cost)) = Numerical.bfgs_method f (lent_vector,(f lent_vector)) in
         p *)
 
     (** We define a function that can optimize a subset of branches in the tree

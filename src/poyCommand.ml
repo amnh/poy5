@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3674 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3676 $"
 
 let debug = false 
 
@@ -1337,7 +1337,7 @@ type command = [
                     [ LIDENT "level"; ":"; x = level_and_tiebreaker -> `Level x ] |
                     [ LIDENT "tcm"; ":"; left_parenthesis; 
                          x = tcm_arguments; right_parenthesis -> x ] |
-                    [ LIDENT "partitioned"; ":"; x = partitioned_mode -> `Partitioned x ] |  
+                (*  [ LIDENT "partitioned"; ":"; x = partitioned_mode -> `Partitioned x ] |  *)
                     [ LIDENT "fixed_states"; x = OPT fixed_states_option -> match x with
                         | Some y -> `Fixed_States y
                         | None -> `Fixed_States (None,None)
@@ -1345,7 +1345,7 @@ type command = [
                     [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
                     [ LIDENT "do" -> `Direct_Optimization ] |
                     [ LIDENT "gap_opening"; ":"; x = INT -> `AffGap (int_of_string x) ] |
-                    [ LIDENT "trailing_deletion"; ":"; x = STRING -> `TailFile x ] |
+                (*  [ LIDENT "trailing_deletion"; ":"; x = STRING -> `TailFile x ] |
                     [ LIDENT "td"; ":"; x = STRING -> `TailFile x ] |
                     [ LIDENT "trailing_deletion"; ":"; left_parenthesis; 
                         x = LIST1 [ x = INT -> x]  SEP ","; right_parenthesis -> 
@@ -1360,7 +1360,7 @@ type command = [
                             `PrepInput (Array.of_list (List.map (int_of_string) x)) ] |
                     [ LIDENT "ti"; ":"; left_parenthesis; x = LIST1 [ x = INT -> x] SEP ",";
                         right_parenthesis -> 
-                            `PrepInput (Array.of_list (List.map (int_of_string) x)) ] |
+                            `PrepInput (Array.of_list (List.map (int_of_string) x)) ] | *)
                     [ LIDENT "static_approx"; x = OPT uninformative_characters -> match x with 
                         | None -> `StaticApproximation true 
                         | Some v -> `StaticApproximation v ] |
