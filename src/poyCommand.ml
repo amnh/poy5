@@ -19,7 +19,7 @@
 
 exception Exit 
 
-let () = SadmanOutput.register "PoyCommand" "$Revision: 3676 $"
+let () = SadmanOutput.register "PoyCommand" "$Revision: 3678 $"
 
 let debug = false 
 
@@ -1285,10 +1285,10 @@ type command = [
                 [
                     [LIDENT "mal" -> `MAL] | [LIDENT "mpl" -> `MPL]
                 ];
-            partitioned_mode:
+         (* partitioned_mode:
                 [
                     [ LIDENT "clip" -> `Clip ] | [ LIDENT "noclip" -> `NoClip ]
-                ];
+                ]; *)
             ml_properties:
                 [
                     [ x = ml_substitution -> `ML_subst x ] |

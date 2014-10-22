@@ -16,11 +16,9 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "MlStaticCS" "$Revision: 3670 $"
+let () = SadmanOutput.register "MlStaticCS" "$Revision: 3678 $"
 
 let compress = true
-
-let use_ocaml_readjust = false
 
 IFDEF USE_LIKELIHOOD THEN
 let failwithf format = Printf.ksprintf failwith format
@@ -617,8 +615,7 @@ let readjust_ocaml xopt x c1 c2 mine c_t1 c_t2 =
                 (fun (c,_) s -> All_sets.Integers.add c s) new_mine.codes x in
         (x,new_mine.mle,nl,(nta,ntb), {new_mine with mle = nl;} )
     
-let readjust = 
-  if use_ocaml_readjust then readjust_ocaml else readjust_c
+let readjust = readjust_c
 
 (* ------------------------------------------------------------------------- *)
 (* extract maximum state from all the characters *)
