@@ -2,15 +2,20 @@ CHANGES BETWEEN 5.1.1 and 5.1.2 Official Releases
 
 Bugs Fixed:
   - Supramap issue where dates in google earth are not normalized. (Thanks, Dan Janies)
-  - added 'nucleotides' for prealigned read-option
-  - removed arguments for clear_memory() command. They were unnecessary.
-  - fixed issues with OCaml 4.01.0+ where format strings were not being converted
+  - Added 'nucleotides' for prealigned read-option (nucleotide was always present).
+  - Removed arguments for clear_memory() command, they were unnecessary.
+  - Fixed issues with OCaml 4.01.0+ where format strings were not being converted
     properly in our logging module.
-  - fixed issues with clang compilation (see clang-compatibility branch in mercurial)
-  - removed function deprecations for newer versions of OCaml
+  - Fixed issues with clang compilation (see clang-compatibility branch in mercurial)
+  - Removed function deprecations for newer versions of OCaml
+  - Issue with trailing/leading spaces in CSV files for supramap (Thanks Dan Janies!)
 
 Command Changes
-  - removed transform(prealigned) -- confusion with transform(ia).
+  - removed transform(prealigned) (confusion with transform(ia) ).
+  - removed transform td, ti, trailing_insertion, trailing_deletion,
+    auto_sequence_partition, auto_static_approx commands. These are internal to the system
+    during the search. These commands had modified the ordering of results which is not
+    appropriate for reporting the data.
 
 
 CHANGES BETWEEN 5.1.0 and 5.1.1 Official Releases

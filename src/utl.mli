@@ -59,6 +59,8 @@ val swap_item : int -> int -> 'a array -> 'a array
 
 val bigger_int : int -> int -> int
 
+val trim : string -> string
+
 val float_to_int_mat : float array array -> int array array
 
 val int_to_int32_arr : int array -> int32 array

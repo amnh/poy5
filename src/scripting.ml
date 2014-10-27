@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3663 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3680 $"
 
 let (-->) a b = b a
 
@@ -575,23 +575,42 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                                 | _ -> raise IllegalCVS)
                         | lst -> raise IllegalCVS
                     in
+                    let failwithf format = Printf.ksprintf failwith format in
                     while true do
                         let line = input_line ch in
-                        match Str.split comma line with
-                        | [a; b; c] when not has_date ->
-                                without_date a (float_of_string b) (float_of_string c)
-                        | [a; b; c; d] when has_date ->
+                        try match Str.split comma line with
+                            | [a; b; c] when not has_date ->
+                                let  a = Utl.trim a in
+                                let fb = try float_of_string (Utl.trim b)
+                                        with _ -> failwithf "Couldn't convert %s to a decimal." b
+                                and fc = try float_of_string (Utl.trim c)
+                                        with _ -> failwithf "Couldn't convert %s to a decimal." c
+                                in
+                                without_date a fb fc
+                            | [a; b; c; d] when has_date ->
                                 (match Str.split (Str.regexp "-") d with
                                 | [x; y; z] ->
-                                    with_date a (float_of_string b) 
-                                        (float_of_string c) (int_of_string x) 
-                                        (int_of_string y) (int_of_string z) d
+                                    let  a = Utl.trim a in
+                                    let fb = try float_of_string (Utl.trim b)
+                                            with _ -> failwithf "Couldn't convert %s to a decimal." b
+                                    and fc = try float_of_string (Utl.trim c)
+                                            with _ -> failwithf "Couldn't convert %s to a decimal." c
+                                    and ix = try int_of_string (Utl.trim x)
+                                            with _ -> failwithf "Couldn't convert %s to an integer." x
+                                    and iy = try int_of_string (Utl.trim y)
+                                            with _ -> failwithf "Couldn't convert %s to an integer." y
+                                    and iz = try int_of_string (Utl.trim z)
+                                            with _ -> failwithf "Couldn't convert %s to an integer." z
+                                    in
+                                    with_date a fb fc ix iy iz d
                                 | _ -> 
                                         prerr_string d;
                                         raise IllegalCVS)
-                        | _ -> 
+                            | _ -> 
                                 prerr_string line;
                                 raise IllegalCVS
+                        with Failure exn ->
+                          failwithf "Couldn't process line %s with error %s." line exn
                     done;
                     assert false
                 with

@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 (** This module implements basic functions *)
 
-let () = SadmanOutput.register "Utl" "$Revision: 3649 $"
+let () = SadmanOutput.register "Utl" "$Revision: 3680 $"
 module IntSet = All_sets.Integers
 
 let large_int = 100000000
@@ -69,7 +69,27 @@ let get_new_seq_ref_code () =
 let deref ptr = match ptr with
     | Some content -> content 
     | None -> failwith "It is a null pointer" 
-            
+ 
+let is_space = function
+  | ' ' | '\012' | '\n' | '\r' | '\t' -> true
+  | _ -> false
+
+let trim s =
+  let len = String.length s in
+  let i = ref 0 in
+  while !i < len && is_space (String.unsafe_get s !i) do
+    incr i
+  done;
+  let j = ref (len - 1) in
+  while !j >= !i && is_space (String.unsafe_get s !j) do
+    decr j
+  done;
+  if !i = 0 && !j = len - 1 then
+    s
+  else if !j >= !i then
+    String.sub s !i (!j - !i + 1)
+  else
+    ""
 
 (*int to bit array, int = 0~15*)
 let break_code in_code =
