@@ -9,6 +9,7 @@ Bugs Fixed:
   - Fixed issues with clang compilation (see clang-compatibility branch in mercurial)
   - Removed function deprecations for newer versions of OCaml
   - Issue with trailing/leading spaces in CSV files for supramap (Thanks Dan Janies!)
+  - Added support for OSX Yosemite (veclib -> Accelerate framework)
 
 Command Changes
   - removed transform(prealigned) (confusion with transform(ia) ).
