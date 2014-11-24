@@ -212,6 +212,8 @@ sankoff_return_value (int * arrarr, int sizex, int sizey, int i, int j) {
 //return 1 if epN is left child of epA, 0 if it's right child
 #ifdef _win32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -338,6 +340,8 @@ sankoff_create_empty_elt (elt_p newelt, int num_states,int ecode) {
 //fill in  code,copy cost matrix.
 #ifdef _win32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -676,6 +680,8 @@ sankoff_get_state (elt_p ep, int pos)
 
 #ifdef _win32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif 
@@ -710,6 +716,8 @@ sankoff_CAML_init_state (value this_elt, value position, value cost) {
 
 #ifdef _win32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif 
@@ -744,6 +752,8 @@ sankoff_CAML_init_e (value this_elt, value position, value cost)
 
 #ifdef _win32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif 
@@ -778,6 +788,8 @@ sankoff_CAML_init_beta (value this_elt, value position, value cost)
 
 #ifdef _win32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif 
@@ -828,6 +840,8 @@ cost_less_or_equal (int a, int b)
 //return min(a,b)
 #ifdef _win32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -1178,6 +1192,8 @@ sankoff_elt_dist_2 (elt_p epD, elt_p epA, elt_p epR, int * tcm) {
 
 #ifdef _win32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -1454,6 +1470,8 @@ sankoff_median(int median_node_tcode,eltarr_p eap1,eltarr_p eap2, eltarr_p newel
 
 #ifdef _win32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif

@@ -34,6 +34,8 @@
  */
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -64,6 +66,8 @@ mat_clean_direction_matrix (matricest m) {
 //, int needtraceback
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif

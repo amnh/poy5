@@ -186,6 +186,8 @@ get_go(int base,int prebase, int idx, int gap_opening)
 //get gap openning cost when extending a indel block
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -198,6 +200,8 @@ get_extgo(int base,int prebase, int idx, int gap_opening)
 
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -228,6 +232,8 @@ void print_direction (DIRECTION_MATRIX dir)
 
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -486,6 +492,8 @@ get_idx (int oldk, int i,int j,newkkmat_p m, int * whichdiag,int * idx_in_my_dia
 
 #ifdef _WIN32
 __inline void 
+#elif __clang__
+void 
 #else
 inline void 
 #endif

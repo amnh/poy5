@@ -6,7 +6,7 @@ Bugs Fixed:
   - Removed arguments for clear_memory() command, they were unnecessary.
   - Fixed issues with OCaml 4.01.0+ where format strings were not being converted
     properly in our logging module.
-  - Fixed issues with clang compilation (see clang-compatibility branch in mercurial)
+  - Fixed issues with clang compilation
   - Removed function deprecations for newer versions of OCaml
   - Issue with trailing/leading spaces in CSV files for supramap (Thanks Dan Janies!)
 

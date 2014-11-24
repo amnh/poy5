@@ -694,6 +694,8 @@ mk_inverse(mat *space,double *VL, const double *VR, int n)
  * matrix by [t] and applies exp() */
 #ifdef _WIN32
 __inline void 
+#elif __clang__
+void 
 #else
 inline void 
 #endif
@@ -708,6 +710,8 @@ apply_exp(double* D, const int n, const int m, const double t)
 /** [log_matrix m] Take the log of each value of the matrix */
 #ifdef _WIN32
 __inline void 
+#elif __clang__
+void 
 #else
 inline void 
 #endif

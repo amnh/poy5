@@ -378,6 +378,8 @@ add_intersection (unsigned char x_min, unsigned char x_max, \
 
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -402,6 +404,8 @@ add_union (unsigned char x_min, unsigned char x_max, unsigned char y_min, \
 #ifdef VECTORIZE
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -432,6 +436,8 @@ add_sort (vUInt8 mina, vUInt8 minb, vUInt8 maxa, vUInt8 maxb, \
      * steps. */
 #ifdef _WIN32
 __inline vUInt8 
+#elif __clang__
+vUInt8 
 #else
 inline vUInt8 
 #endif
@@ -488,6 +494,8 @@ add_vector_sum (vUInt8 total) {
 #ifdef VECTORIZE
 #ifdef _WIN32
 __inline vUInt8
+#elif __clang__
+vUInt8
 #else
 inline vUInt8
 #endif
@@ -746,6 +754,8 @@ add_full_union (add_stt a, add_stt b, add_stt c) {
 
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif

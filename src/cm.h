@@ -176,6 +176,8 @@ int cm_calc_cost (int *tcm, SEQT a, SEQT b, int a_sz);
  */
 #ifdef _WIN32
 __inline int *
+#elif __clang__
+int *
 #else
 inline int *
 #endif
@@ -190,6 +192,8 @@ cm_get_tail_cost (const cmt a);
 
 #ifdef _WIN32
 __inline int *
+#elif __clang__
+int *
 #else
 inline int *
 #endif
@@ -202,6 +206,8 @@ cm_get_prepend_cost (const cmt a);
  */
 #ifdef _WIN32
 __inline int *
+#elif __clang__
+int *
 #else
 inline int *
 #endif
@@ -290,6 +296,8 @@ typedef struct cm_3d * cm_3dt;
  */
 #ifdef _WIN32
 __inline SEQT
+#elif __clang__
+SEQT
 #else
 inline SEQT
 #endif
@@ -314,6 +322,8 @@ cm_get_gap_3d (const cm_3dt c);
 
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -328,6 +338,8 @@ cm_get_ori_a_sz_3d (const cm_3dt c);
 
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -350,6 +362,8 @@ cm_get_affine_flag_3d (cm_3dt c);
  */
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -392,6 +406,8 @@ cm_precalc_4algn_3d (const cm_3dt c, int *to_output, const seqt s);
  */
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif

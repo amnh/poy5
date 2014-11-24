@@ -88,6 +88,8 @@ seq_get_head (const seqt a);
  * a is stored. */
 #ifdef _WIN32
 __inline SEQT *
+#elif __clang__
+SEQT *
 #else
 inline SEQT *
 #endif

@@ -72,6 +72,8 @@ DIRECTION_MATRIX *_algn_max_direction = NULL;
  * data for the aligned sequence data */
 #ifdef _WIN32
 __inline void 
+#elif __clang__
+void 
 #else
 inline void 
 #endif
@@ -88,6 +90,8 @@ follow_insertion (DIRECTION_MATRIX ** endp, int l, const cmt c, seqt r1, seqt r2
  * data for the aligned sequence data */
 #ifdef _WIN32
 __inline void 
+#elif __clang__
+void 
 #else
 inline void 
 #endif
@@ -532,6 +536,8 @@ algn_fill_row (int *mm, const int *pm, const int *gap_row, const int *alg_row,
 
 #ifdef _WIN32
 __inline void 
+#elif __clang__
+void 
 #else
 inline void 
 #endif
@@ -1270,6 +1276,8 @@ FILL_EXTEND_HORIZONTAL_NOBT (int sj_horizontal_extension, int sj_gap_extension,
 
 #ifdef _WIN32
 __inline DIRECTION_MATRIX
+#elif __clang__
+DIRECTION_MATRIX
 #else
 inline DIRECTION_MATRIX
 #endif
@@ -1312,6 +1320,8 @@ FILL_EXTEND_VERTICAL_NOBT (int si_vertical_extension, int si_gap_extension,
 
 #ifdef _WIN32
 __inline DIRECTION_MATRIX
+#elif __clang__
+DIRECTION_MATRIX
 #else
 inline DIRECTION_MATRIX
 #endif
@@ -1334,6 +1344,8 @@ FILL_EXTEND_VERTICAL (int si_vertical_extension, int si_gap_extension, int si_ga
 
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -3620,6 +3632,8 @@ algn_ancestor_2 (seqt s1, seqt s2, cmt m, seqt sm ) {
  */
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif

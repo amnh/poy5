@@ -350,6 +350,8 @@ union _vectnac_u {
 /** Inline function to calculate the median of two elements. */
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -388,6 +390,8 @@ nonadd_make_union_par (const nacat au,
 /** Inline function to calculate the median of two elements. */
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -432,6 +436,8 @@ nonadd_make_union (const nacat self,
 /** Inline function to calculate the median of two elements. */
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -482,6 +488,8 @@ nonadd_median (const nacat a,
 */
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -566,6 +574,8 @@ nonadd_median_3 (const nacat _A,       /** Ancestor */
  * Note: what do we do for the stored unions? */
 #ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif

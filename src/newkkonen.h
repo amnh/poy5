@@ -98,6 +98,8 @@ typedef struct newkkmat * newkkmat_p;
 
 #ifdef _WIN32
 __inline int 
+#elif __clang__
+int 
 #else
 inline int 
 #endif
