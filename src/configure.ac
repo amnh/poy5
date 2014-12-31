@@ -480,7 +480,7 @@ AC_MSG_CHECKING([to enable likelihood])
 case ${OS_INFORMATION} in
     *-apple-*)
         AS_IF([test $USE_LIKELIHOOD = "true"],
-                [LIBS="-framework veclib $LIBS";USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
+                [LIBS="-framework Accelerate $LIBS";USE_LIKELIHOOD="true";DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD";
                  OUSE_LIKELIHOOD=",use_likelihood";AC_MSG_RESULT([enabled]);],
                 [AC_MSG_RESULT([disabled])])
         ;;
