@@ -17,13 +17,15 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 3649 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 3692 $"
 
 exception Illegal_Character of string
 exception Illegal_Code of int
 exception Illegal_List of int list
 (* Define an exception to return the character and location of error *)
 exception Lexer_Error of string * int
+
+let failwithf format = Printf.ksprintf failwith format
 
 let debug = false
 
@@ -341,7 +343,7 @@ let aminoacids_char_list =
     ]
 
 let aminoacids =
-    list_to_a aminoacids_char_list gap_repr (Some "X") Sequential 
+    list_to_a aminoacids_char_list gap_repr (Some "X") Sequential
 
 let aminoacids_use_3d =
     list_to_a ~init3D:true aminoacids_char_list gap_repr (Some "X") Sequential 
@@ -925,7 +927,10 @@ let n_to_the_powers_of_m n m =
     in
     func m 1
 
-let create_alph_by_level alph level oldlevel =
+let create_alph_by_level alph level =
+  if level = get_level alph then
+    alph
+  else begin
     let ori_a_size = get_ori_size alph in
     let orientation= get_orientation alph in
     let get_ori_alst  = 
@@ -952,6 +957,7 @@ let create_alph_by_level alph level oldlevel =
             explote orialph level ori_a_size
     in
     newalph
+  end
             
 let distinct_size alph =
     All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1) alph.code_to_string 0
@@ -972,34 +978,41 @@ let rev_comp_arr seqarr alph =
     Array.mapi (fun idx x -> complement2 seqarr.(size-idx-1) alph) seqarr 
 
 (*[of_file] is only called by scripting.ml, when reading in custom alphabet and breakinversion file*)
-let of_file fn orientation init3D level respect_case tie_breaker =
+let of_file fn orientation init3D level respect_case tie_breaker alphabet =
     let file = FileStream.Pervasives.open_in fn in
-    let alph = FileStream.Pervasives.input_line file in
     let default_gap = gap_repr in
-    let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
-    (*all_element is None for custom alphabet and breakinv*)
-    let alph = of_string ~respect_case ~orientation ~init3D elts default_gap None in 
-    (*at this point, alph is a plain alphabet with only orientation but no
-    * combination, size set to original size, level set to 0, two maps set to empty, *)
-    let size = size alph in(*size here is still the original size without combination*)
-    let alph, do_comb = 
-        (*when orientation is true, it's breakinv, we don't do combination/level*)
-        if orientation then alph, false 
-        else explote alph level size, true
+    let alph, do_comb = match alphabet with
+      | None ->
+          let alph = FileStream.Pervasives.input_line file in
+          let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
+          (*all_element is None for custom alphabet and breakinv*)
+          let alph = of_string ~respect_case ~orientation ~init3D elts default_gap None in
+          (*at this point, alph is a plain alphabet with only orientation but no
+           * combination, size set to original size, level set to 0, two maps set to empty, *)
+          let size = size alph in(*size here is still the original size without combination*)
+          (*when orientation is true, it's breakinv, we don't do combination/level*)
+          if orientation then alph, false else explote alph level size, true
+      | Some x ->
+          create_alph_by_level x level, level >= 1
     in
     (*get cost matrix out of input cm file*)
-    let tcm_full,tcm_original, matrix = 
-        let all_elements = -1 (* breakinv and customalphabet don't have all_elements *) in
-        if do_comb then
-            Cost_matrix.Two_D.of_channel ~tie_breaker ~orientation ~level all_elements file 
-        else
-            Cost_matrix.Two_D.of_channel_nocomb ~orientation all_elements file
+    let tcm_full, tcm_original, matrix =
+        let all_elements = match alph.all with
+            | None -> -1
+            | Some x -> x
+        in
+        if do_comb
+            then Cost_matrix.Two_D.of_channel ~tie_breaker ~orientation ~level all_elements file
+            else Cost_matrix.Two_D.of_channel_nocomb ~orientation all_elements file
     in
-    assert( alph.gap = Cost_matrix.Two_D.gap tcm_full );
-    assert( alph.gap = Cost_matrix.Two_D.gap tcm_original );
+    if alph.gap !=
+      then failwithf "Expected alphabet gap (%d) is not in the full cost-matrix (%d)" alph.gap (Cost_matrix.Two_D.gap tcm_full);
+    if alph.gap != Cost_matrix.Two_D.gap tcm_original
+      then failwithf "Expected alphabet gap (%d) is not in the orig cost-matrix (%d)" alph.gap (Cost_matrix.Two_D.gap tcm_original);
     let tcm3 = match init3D with
         | true -> Cost_matrix.Three_D.of_two_dim tcm_full
-        | false  ->  Cost_matrix.Three_D.default_nucleotides 
+        | false  ->  Cost_matrix.Three_D.default_nucleotides
     in 
     file#close_in;
     alph, (tcm_full,tcm_original,matrix), tcm3
+

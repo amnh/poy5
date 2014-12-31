@@ -210,7 +210,7 @@ val to_sequential : a -> a
 
 (** [create_alph_by_level alph level] creates a new alphabet based on the new
     level value *)
-val create_alph_by_level : a -> int -> int -> a
+val create_alph_by_level : a -> int -> a
 
 (** [explote a level ori_sz] takes an alphabet of any [kind] and generates an
     [Extended_Bit_Flags] alphabet, where every combination is represented within
@@ -247,8 +247,6 @@ end
 
 (** [of_file stream o 3d] parse an alphabet using orientation [o],
     and optionally initialize it to 3d dimensions [3d]. *)
-val of_file : FileStream.f -> bool -> bool -> int -> bool -> Methods.keep_method
-                -> a * (Cost_matrix.Two_D.m * Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
- 
-(** Create alphabet with a specific level from a current level *)
-val create_alph_by_level : a -> int -> int -> a
+val of_file :
+  FileStream.f -> bool -> bool -> int -> bool -> Methods.keep_method -> a option
+       -> a * (Cost_matrix.Two_D.m * Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m

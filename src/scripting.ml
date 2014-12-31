@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 3680 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 3689 $"
 
 let (-->) a b = b a
 
@@ -1599,7 +1599,7 @@ let load_data (meth : Methods.input) data nodes =
                       let aa_cm_full,aa_cm_orig =
                           Cost_matrix.Two_D.of_transformations_and_gaps false (Alphabet.size alpha) a b all
                           --> (fun (c,o) -> Cost_matrix.Two_D.create_cm_by_level c x 1 all y, o)
-                      and alpha = Alphabet.create_alph_by_level alpha x 1 in
+                      and alpha = Alphabet.create_alph_by_level alpha x in
                       let three_d = match init3D with
                         | true  -> Cost_matrix.Three_D.of_two_dim aa_cm_full
                         | false -> Cost_matrix.Three_D.default_nucleotides 
@@ -1611,15 +1611,15 @@ let load_data (meth : Methods.input) data nodes =
                           Cost_matrix.Two_D.default_aminoacids
                             --> Cost_matrix.Two_D.clone
                             --> (fun c -> Cost_matrix.Two_D.create_cm_by_level c x 1 all y)
-                      and alpha = Alphabet.create_alph_by_level alpha x 1 in
+                      and alpha = Alphabet.create_alph_by_level alpha x in
                       alpha,
                         (aa_cm_full,Cost_matrix.Two_D.default_aminoacids,Data.default_tcm),
                           (Lazy.force Cost_matrix.Three_D.default_aminoacids)
                   | Some (x,y),Some f,None ->
-                      let a,(m2,m1,m0),m3 = Alphabet.of_file f false init3D x false y in
+                      let a,(m2,m1,m0),m3 = Alphabet.of_file f false init3D x false y (Some alpha) in
                       a,(m2,m1,(Data.Input_file (get_name f,m0))), m3
                   | None, Some f,None ->
-                      let a,(m2,m1,m0),m3 = Alphabet.of_file f false init3D 2 false `First in
+                      let a,(m2,m1,m0),m3 = Alphabet.of_file f false init3D 2 false `First (Some alpha) in
                       a,(m2,m1,(Data.Input_file (get_name f,m0))), m3
                   | None, None,None -> 
                     alpha,(Cost_matrix.Two_D.default_aminoacids,
@@ -1664,7 +1664,7 @@ let load_data (meth : Methods.input) data nodes =
             in
             let respect_case = true in
             let alphabet, (twod_full,twod_original,matrix), threed =
-                Alphabet.of_file alph orientation init3D level respect_case tb
+                Alphabet.of_file alph orientation init3D level respect_case tb None
             in
             let () =
                 try match List.find (function `Affine _ -> true | _ -> false)
@@ -1728,7 +1728,7 @@ let load_data (meth : Methods.input) data nodes =
                 with | Not_found   -> 1,tb
             in
             let alphabet, (twod,twod_ori,matrix), threed =
-                Alphabet.of_file alph orientation init3D level respect_case tb
+                Alphabet.of_file alph orientation init3D level respect_case tb None
             and tcmfile = FileStream.filename alph in
             List.fold_left
                 (fun d f ->

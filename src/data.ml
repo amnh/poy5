@@ -5483,7 +5483,7 @@ let assign_tcm_to_characters_from_file data chars file =
         let is_aminoacids = Alphabet.is_aminoacids old_alphabet in
         let is_dna = if old_alphabet = Alphabet.dna then true else false in
         let is_dna_or_ami_or_nucleotides = (is_dna || is_aminoacids || is_nucleotides) in
-        let oldlevel,ori_sz = Alphabet.get_level old_alphabet,  Alphabet.get_ori_size old_alphabet in
+        let oldlevel,ori_sz = Alphabet.get_level old_alphabet, Alphabet.get_ori_size old_alphabet in
         let newtcm_function,newalph = match file with
             | None ->
                 (fun x -> Cost_matrix.Two_D.default, Cost_matrix.Two_D.default, default_tcm), old_alphabet
@@ -5554,8 +5554,7 @@ let assign_tcm_to_characters_from_file data chars file =
                         res),
                 (*create new alphabet*)
                 if change_alphabet then (*create new alphabet*)
-                    Alphabet.create_alph_by_level old_alphabet level oldlevel
-                    (*Alphabet.set_size (Alphabet.set_level old_alphabet level combnum*)
+                    Alphabet.create_alph_by_level old_alphabet level
                 else (*keep the old alphabet*)
                     let _ = match level_and_tie_breaker with
                         | None -> ()
@@ -5891,7 +5890,7 @@ let assign_level data chars tie_breaker level =
                             let cm_full = Cost_matrix.Two_D.clone cm_full in
                             let cm_full = Cost_matrix.Two_D.create_cm_by_level cm_full level
                             oldlevel all_elements tie_breaker in
-                            cm_full, Alphabet.create_alph_by_level alph level oldlevel
+                            cm_full, Alphabet.create_alph_by_level alph level
                         end;
                     in
                     (true, a),(fun _ -> rescm, cm_ori, name),resalph
