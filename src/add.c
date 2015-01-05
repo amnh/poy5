@@ -345,6 +345,8 @@ add_dup (add_stt src) {
 #ifndef VECTORIZE
 #ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
