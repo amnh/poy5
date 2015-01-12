@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 3692 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 3697 $"
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -1005,7 +1005,7 @@ let of_file fn orientation init3D level respect_case tie_breaker alphabet =
             then Cost_matrix.Two_D.of_channel ~tie_breaker ~orientation ~level all_elements file
             else Cost_matrix.Two_D.of_channel_nocomb ~orientation all_elements file
     in
-    if alph.gap !=
+    if alph.gap != Cost_matrix.Two_D.gap tcm_full
       then failwithf "Expected alphabet gap (%d) is not in the full cost-matrix (%d)" alph.gap (Cost_matrix.Two_D.gap tcm_full);
     if alph.gap != Cost_matrix.Two_D.gap tcm_original
       then failwithf "Expected alphabet gap (%d) is not in the orig cost-matrix (%d)" alph.gap (Cost_matrix.Two_D.gap tcm_original);

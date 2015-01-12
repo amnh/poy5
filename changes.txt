@@ -10,9 +10,11 @@ Bugs Fixed:
   - Removed function deprecations for newer versions of OCaml
   - Issue with trailing/leading spaces in CSV files for supramap (Thanks Dan Janies!)
   - Added support for OSX Yosemite (veclib -> Accelerate framework)
+  - Fixed bug in sankoff distance calculation. The bug affects branch lengths and a
+    heuristic on the cost of the tree, and not the actual cost.
 
 Command Changes
-  - removed transform(prealigned) (confusion with transform(ia) ).
+  - removed transform(prealigned) (confusion with transform(ia)).
   - removed transform td, ti, trailing_insertion, trailing_deletion,
     auto_sequence_partition, auto_static_approx commands. These are internal to the system
     during the search. These commands had modified the ordering of results which is not

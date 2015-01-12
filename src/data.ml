@@ -5498,8 +5498,6 @@ let assign_tcm_to_characters_from_file data chars file =
                 let level,tie_breaker,use_comb,change_alphabet =
                     match level_and_tie_breaker with
                     | None -> 
-                        (*when there is no new level and tiebreaker,tie breaker is set to
-                        * default -- do we want to keep the old tie breaker?*)
                         (*we do full combination for dna and nucleotides*)
                         if is_dna||is_nucleotides then   0,default_km,true,false
                         (*old level is > 1 and <= size, we keep the old level,

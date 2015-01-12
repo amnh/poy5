@@ -137,8 +137,10 @@ value sankoff_CAML_register_eltarr (value u) {
 
 
 //return 0 if two int array are the same, 1 otherwise
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif 
@@ -169,8 +171,10 @@ sankoff_print_int_array (char * str, int * arr, int size)
 }
 
 //return 1 if x is a member of array. 0 otherwise
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -185,8 +189,10 @@ int_array_is_mem (int * arr, int size, int x) {
 
 //given a matrix of sizex * sizey, return pointer to the start of line#.i,
 //i start from 0
-#ifdef _win32
+#ifdef _WIN32
 __inline int *
+#elif __clang__
+int*
 #else
 inline int *
 #endif
@@ -197,8 +203,10 @@ sankoff_move_to_line_i (int * arrarr, int sizex, int sizey, int i) {
 
 //given a int mat of sizex*sizey, return value on mat.(i).(j).
 //i,j start from 0
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -210,7 +218,7 @@ sankoff_return_value (int * arrarr, int sizex, int sizey, int i, int j) {
 }
 
 //return 1 if epN is left child of epA, 0 if it's right child
-#ifdef _win32
+#ifdef _WIN32
 __inline int
 #elif __clang__
 int
@@ -231,8 +239,10 @@ sankoff_is_left_or_right_child (eltarr_p eapN, eltarr_p eapA) {
 
 //return 1 if this node is a leaf, for a leaf node , its left and right child
 //taxon code should be both 0.
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -311,8 +321,10 @@ sankoff_print_eltarr (eltarr_p eap, int printe, int printbeta, int print_costdif
 //allocate memory for what its pointers pointing to -- states
 //array, beta array, e array, m array and best_states array.
 //init num_states and ecode. ecode could be (-1).
-#ifdef _win32
+#ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -338,7 +350,7 @@ sankoff_create_empty_elt (elt_p newelt, int num_states,int ecode) {
 //pointing to.
 //allocate memory for cost matrix and elts.
 //fill in  code,copy cost matrix.
-#ifdef _win32
+#ifdef _WIN32
 __inline void
 #elif __clang__
 void
@@ -429,8 +441,10 @@ sankoff_CAML_get_states(value this_elt, value this_or_left_or_right) {
 
 //copy ep1 to ep2, ep2 must be init with enough memory already for what its
 //pointers pointing to
-#ifdef _win32
+#ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -629,8 +643,10 @@ sankoff_CAML_filter_character(value this_eltarr, value ecode_bigarr, value get_c
 }
 
 
-#ifdef _win32
+#ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -641,8 +657,10 @@ sankoff_set_state (elt_p ep, int pos, int c)
     return;
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -653,8 +671,10 @@ sankoff_set_leftstate (elt_p ep, int pos, int c)
     return;
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -667,8 +687,10 @@ sankoff_set_rightstate (elt_p ep, int pos, int c)
 
 
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif 
@@ -678,7 +700,7 @@ sankoff_get_state (elt_p ep, int pos)
     return (ep->states)[pos];
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
 #elif __clang__
 int
@@ -691,8 +713,10 @@ sankoff_get_leftstate (elt_p ep, int pos)
     return (ep->leftstates)[pos];
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif 
@@ -714,7 +738,7 @@ sankoff_CAML_init_state (value this_elt, value position, value cost) {
     CAMLreturn (Val_unit);
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline void
 #elif __clang__
 void
@@ -727,7 +751,7 @@ sankoff_set_e (elt_p ep, int pos, int c)
     return;
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
 #else
 inline int
@@ -750,7 +774,7 @@ sankoff_CAML_init_e (value this_elt, value position, value cost)
     CAMLreturn (Val_unit);
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline void
 #elif __clang__
 void
@@ -763,8 +787,10 @@ sankoff_set_beta (elt_p ep, int pos, int c)
     return;
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -786,7 +812,7 @@ sankoff_CAML_init_beta (value this_elt, value position, value cost)
     CAMLreturn (Val_unit);
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline void
 #elif __clang__
 void
@@ -799,8 +825,10 @@ sankoff_set_m (elt_p ep, int pos, int c)
     return;
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -811,8 +839,10 @@ sankoff_get_m (elt_p ep, int pos)
 
 //return 1 if a<b or b is infinity but a is not,
 //return 0 if a>=b or if a is infinity 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -825,8 +855,10 @@ cost_less (int a, int b)
 
 //return 1 if a<b or b is infinity but a is not,
 //return 0 if a>=b or if a is infinity 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -838,7 +870,7 @@ cost_less_or_equal (int a, int b)
 }
 
 //return min(a,b)
-#ifdef _win32
+#ifdef _WIN32
 __inline int
 #elif __clang__
 int
@@ -851,8 +883,10 @@ cost_min (int a, int b)
     else return b;
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -863,8 +897,10 @@ cost_plus (int a, int b)
 }
 
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -881,8 +917,10 @@ cost_minus (int a, int b)
 }
 
 //store min(a,*b) to b. Note that b is a pointer. return 1 if b is changed.
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -897,8 +935,10 @@ store_min (int a, int * b) {
 
 
 //fill in cost with min cost, idx with which state give us min cost
-#ifdef _win32
+#ifdef _WIN32
 __inline void
+#elif __clang__
+void
 #else
 inline void
 #endif
@@ -929,8 +969,10 @@ sankoff_CAML_get_e_array (value a) {
 }
 
 //return min cost between same states, if num_samestates=0, return inf
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -1053,8 +1095,10 @@ sankoff_CAML_create_eltarr_bytecode (value * argv, int argn){
 }
 
 //store the shared states between two eltarr. return the number of shared states
-#ifdef _win32
+#ifdef _WIN32
 __inline int
+#elif __clang__
+int
 #else
 inline int
 #endif
@@ -1190,7 +1234,7 @@ sankoff_elt_dist_2 (elt_p epD, elt_p epA, elt_p epR, int * tcm) {
     }
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
 #elif __clang__
 int
@@ -1418,12 +1462,12 @@ sankoff_elt_distance(elt_p ep1, elt_p ep2, int * tcm, elt_p newep) {
     int debug = 0;
     if (debug) {
         printf("sankoff_elt_distance,call elt_median first\n");
-        sankoff_print_elt(ep1,0,0,0,0);
-        sankoff_print_elt(ep2,0,0,0,0);
+        sankoff_print_elt(ep1,1,1,1,1);
+        sankoff_print_elt(ep2,1,1,1,1);
     }
     if (debug) {
         printf("end of elt median\n"); 
-        sankoff_print_elt(newep,1,1,0,1);
+        sankoff_print_elt(newep,1,1,1,1);
     }
     int state_w_mincost=0, mincost=infinity;
     sankoff_get_min_state(newep,&mincost,&state_w_mincost);
@@ -1468,7 +1512,7 @@ sankoff_median(int median_node_tcode,eltarr_p eap1,eltarr_p eap2, eltarr_p newel
     return;
 }
 
-#ifdef _win32
+#ifdef _WIN32
 __inline int
 #elif __clang__
 int
@@ -1505,16 +1549,16 @@ sankoff_CAML_get_best_child_state (value a, value ch_tcode) {
 
 
 int
-sankoff_distance(eltarr_p eap1,eltarr_p eap2, eltarr_p neweltarr) {
+sankoff_distance(eltarr_p eap1, eltarr_p eap2, eltarr_p neweltarr) {
     int acc=0;
     int i;
     int num_states, num_elts;
     num_states = eap1->num_states;
     num_elts = eap1->num_elts;
-    //we don't need the median, just the distance
     sankoff_init_eltarr (neweltarr, num_states, num_elts, eap1->code, 0, eap1->taxon_code,eap2->taxon_code,eap1->tcm,eap1->is_identity);
     for (i=0;i<num_elts;i++) {
         sankoff_create_empty_elt(&((neweltarr->elts)[i]),num_states,-1);
+        sankoff_elt_median(&((eap1->elts)[i]),&((eap2->elts)[i]),eap1->tcm, &((neweltarr->elts)[i]));
         acc = acc + sankoff_elt_distance (&((eap1->elts)[i]),&((eap2->elts)[i]),eap1->tcm, &((neweltarr->elts)[i]));
     }
     return acc;
