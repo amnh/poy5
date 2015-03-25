@@ -1,5 +1,4 @@
 ----------------------------------
-POY 5.1.0 Official
+POY 5 Official Repository
 -----------------------------------
-This is the Phylogenetic Analysis Program using Direct Optimization.
-
+POY is a phylogenetic analysis program that supports multiple kinds of data (e.g. morphology, nucleotides, genes and gene regions, chromosomes, whole genomes, etc). POY is particular in that it can perform true alignment and phylogeny inference (i.e. input sequences need not to be prealigned). Insertions, deletions, and rearrangements, can then be included in the overall tree score (under Maximum Parsimony), or in the model (under Maximum Likelihood). A variety of heuristic algorithms have been developed for this purpose and are implemented in POY. 
