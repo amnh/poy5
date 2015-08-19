@@ -33,7 +33,6 @@ let interface =
     else
         "status_@USEINTERFACE@.ml"
 
-
 let major, minor =
     (* to avoid str dependency in plugin *)
     let rec get_until i str acc =
@@ -47,11 +46,9 @@ let major, minor =
     let minor,_ = get_until n vnum [] in
     int_of_string major, int_of_string minor
  
-
-let ocamlfind_query pkg =
+let query pkg =
     let cmd = Printf.sprintf "ocamlfind query %s" (Filename.quote pkg) in
     Ocamlbuild_pack.My_unix.run_and_open cmd (fun ic -> input_line ic)
-
 
 (** Prefix / Root Options **)
 let prefix   = "@PATH_PREFIX@"
@@ -73,7 +70,6 @@ let split string =
     res := (Buffer.contents cur) :: !res;
     List.rev !res
 
-
 let process_flags ocaml_option cflags =
     let cflags = split cflags in
     let cflags = 
@@ -85,14 +81,11 @@ let process_flags ocaml_option cflags =
     in
     cflags
 
-
 let ccompileflags =
     let flags = process_flags "-ccopt" cflags in  
-    if debug_cside then
-        A"-runtime-variant" :: A"d" :: A"-cc" ::  A cc :: flags
-    else
-        A"-cc" ::  A cc :: flags 
-
+    if debug_cside
+      then A"-runtime-variant" :: A"d" :: A"-cc" ::  A cc :: flags
+      else A"-cc" ::  A cc :: flags 
 
 and clinkflags = 
     let flags = process_flags "-cclib" clibs in
@@ -436,14 +429,9 @@ dispatch begin function
         (S[A"-ccopt"; A"-I"; A"-ccopt"; A (path_inc^"malloc");
            A"-ccopt"; A"-I"; A"-ccopt"; A path_inc]);
 
-    flag ["c"; "use_char8"]
-        (S[A"-ccopt"; A"-DCHARSIZE=8"]);
-
-    flag ["c"; "use_char16"]
-        (S[A"-ccopt"; A"-DCHARSIZE=16"]);
-
-    flag ["c"; "use_char32"]
-        (S[A"-ccopt"; A"-DCHARSIZE=32"]);
+    flag ["c"; "use_char8"]   (S[A"-ccopt"; A"-DCHARSIZE=8"]);
+    flag ["c"; "use_char16"]  (S[A"-ccopt"; A"-DCHARSIZE=16"]);
+    flag ["c"; "use_char32"]  (S[A"-ccopt"; A"-DCHARSIZE=32"]);
 
     dep ["link"; "ocaml"; "use_poy"]
         ["libpoycside.a"];
@@ -463,17 +451,10 @@ dispatch begin function
     dep ["link"; "ocaml"; "use_grappa"]
         ["libgrappa.a"];
 
-    flag ["link"; "ocaml"; "use_camlp4o"]
-        (S[A"-I"; A"+camlp4"]);
-
-    flag ["link"; "ocaml"; "native"; "use_camlp4o"]
-        (A"camlp4o.cmxa");
-
-    flag ["link"; "ocaml"; "byte"; "use_camlp4o"]
-        (A"camlp4o.cma");
-
-    flag ["ocaml"; "compile"; "use_camlp4o"]
-        (S [(A"-I"); A"+camlp4"]);
+    flag ["link"; "ocaml"; "use_camlp4o"]           (S[A"-I"; A"+camlp4"]);
+    flag ["link"; "ocaml"; "native"; "use_camlp4o"] (A"camlp4o.cmxa");
+    flag ["link"; "ocaml"; "byte"; "use_camlp4o"]   (A"camlp4o.cma");
+    flag ["ocaml"; "compile"; "use_camlp4o"]        (S [(A"-I"); A"+camlp4"]);
 
     flag ["link"; "ocaml"; "byte"; "use_gzcaml"]
         (S [A"-dllib"; A"-lzlibstubs"; A"-cclib"; A"-lzlibstubs"; 
@@ -492,70 +473,38 @@ dispatch begin function
     flag ["c"; "compile"; "use_nativedynlink"]
         (S [A"-ccopt"; A"-DUSE_NATIVEDYNLINK"]);
 
-    flag ["c"; "compile"; "use_xslt"]
-        (S[A"-ccopt"; A"-DUSE_XSLT"]);
-
-    flag ["c"; "compile"; "use_likelihood"]
-        (S[A"-ccopt"; A"-DUSE_LIKELIHOOD"]);
-
-    flag ["c"; "compile"; "use_concorde"]
-        (S[A"-ccopt"; A"-DUSE_CONCORDE"]);
-
-    flag ["link"; "use_concorde"]
-        (A concordelib); 
-
-    flag ["c"; "compile"; "use_readline"]
-        (S[A"-ccopt"; A"-DUSEREADLINE"]);
-
-    flag ["c"; "compile"; "use_ncurses"]
-        (S[A"-ccopt"; A"-DUSENCURSES"]);
-
-    flag ["c"; "compile"; "use_parallel"]
-        (S[A"-ccopt"; A"-DUSEPARALLEL"]);
-
-    flag ["link"; "ocaml"; "use_parallel"]
-        (S[A"-cclib"; A"-lmpicaml"]);
+    flag ["c"; "compile"; "use_xslt"]       (S[A"-ccopt"; A"-DUSE_XSLT"]);
+    flag ["c"; "compile"; "use_likelihood"] (S[A"-ccopt"; A"-DUSE_LIKELIHOOD"]);
+    flag ["c"; "compile"; "use_concorde"]   (S[A"-ccopt"; A"-DUSE_CONCORDE"]);
+    flag ["link"; "use_concorde"]           (A concordelib); 
+    flag ["c"; "compile"; "use_readline"]   (S[A"-ccopt"; A"-DUSEREADLINE"]);
+    flag ["c"; "compile"; "use_ncurses"]    (S[A"-ccopt"; A"-DUSENCURSES"]);
+    flag ["c"; "compile"; "use_parallel"]   (S[A"-ccopt"; A"-DUSEPARALLEL"]);
+    flag ["link"; "ocaml"; "use_parallel"]  (S[A"-cclib"; A"-lmpicaml"]);
 
     if @USE_PARMAP@ then begin
-        flag ["ocaml"; "compile"; "use_parmap"]
-            (S[A"-I"; A (ocamlfind_query "parmap")]);
-        flag ["ocaml"; "link"; "use_parmap"]
-            (S[A"-I"; A (ocamlfind_query "parmap")]);
-        flag ["ocaml"; "link"; "native"; "use_parmap"]
-            (A"parmap.cmxa");
-        flag ["ocaml"; "link"; "byte"; "use_parmap"]
-            (A"parmap.cma");
+        flag ["ocaml"; "compile"; "use_parmap"]         (S[A"-I"; A (query "parmap")]);
+        flag ["ocaml"; "link"; "use_parmap"]            (S[A"-I"; A (query "parmap")]);
+        flag ["ocaml"; "link"; "native"; "use_parmap"]  (A"parmap.cmxa");
+        flag ["ocaml"; "link"; "byte"; "use_parmap"]    (A"parmap.cma");
     end;
 
     if @USEWIN32@ then
-        flag ["link"; "ocaml"; "use_parallel"]
-            (S[A"-cclib"; A"-lmpi"]);
+        flag ["link"; "ocaml"; "use_parallel"] (S[A"-cclib"; A"-lmpi"]);
 
     dep ["link"; "ocaml"; "use_parallel"]
         ["libmpicaml.a";];
 
-    flag ["c"; "compile"; "use_nosharedhd"]
-        (S[A"-ccopt"; A"-DUSENOSHAREDHD"]);
-
-    flag ["c"; "compile"; "use_large_messages"]
-        (S[A"-ccopt"; A"-DUSE_LARGE_MESSAGES"]);
-
-    flag ["c"; "compile"; "use_long_sequences"]
-        (S[A"-ccopt"; A"-DUSE_LONG_SEQUENCES"]);
-
-    flag ["c"; "compile"; "use_large_alphabets"]
-        (S[A"-ccopt"; A"-DUSE_LARGE_ALPHABETS"]);
-
-    flag ["c"; "compile"; "use_verify_costs"]
-        (S[A"-ccopt"; A"-DUSE_VERIFY_COSTS"]);
-
-    flag ["c"; "compile"; "use_win32"]
-        (S[A"-ccopt"; A"-DUSEWIN32"]);
+    flag ["c"; "compile"; "use_nosharedhd"]       (S[A"-ccopt"; A"-DUSENOSHAREDHD"]);
+    flag ["c"; "compile"; "use_large_messages"]   (S[A"-ccopt"; A"-DUSE_LARGE_MESSAGES"]);
+    flag ["c"; "compile"; "use_long_sequences"]   (S[A"-ccopt"; A"-DUSE_LONG_SEQUENCES"]);
+    flag ["c"; "compile"; "use_large_alphabets"]  (S[A"-ccopt"; A"-DUSE_LARGE_ALPHABETS"]);
+    flag ["c"; "compile"; "use_verify_costs"]     (S[A"-ccopt"; A"-DUSE_VERIFY_COSTS"]);
+    flag ["c"; "compile"; "use_win32"]            (S[A"-ccopt"; A"-DUSEWIN32"]);
 
     (* for GCC 4.5+ linker and ocamlbuild link order fix *)
     if @CC_NOASNEEDED@ then
-        flag ["ocaml"; "link"]
-            (S [A"-cclib";A"-Wl,--no-as-needed"]);
+        flag ["ocaml"; "link"] (S [A"-cclib";A"-Wl,--no-as-needed"]);
 
     if @USE_UNSAFE@ then begin
         flag ["ocaml"; "compile"] (S [A"-unsafe"]);
@@ -576,17 +525,12 @@ dispatch begin function
         flag ["c"; "link"]    (S [A"-ccopt";A"-finline-limit=0"]);
     end;
 
-    flag ["shared"; "link"]
-        (S [A"-ccopt";A"-shared"]);
-
-    flag ["c"; "compile"]
-        (S ccompileflags);
-
-    flag ["c"; "link"]
-        (S clinkflags);
-
-    flag ["ocaml"; "compile"]
-        (S ccompileflags);
+    flag ["shared"; "link"]   (S [A"-ccopt";A"-shared"]);
+    flag ["c"; "compile"]     (S ccompileflags);
+    flag ["c"; "link"]        (S clinkflags);
+    flag ["ocaml"; "compile"] (S ccompileflags);
+    flag ["ocaml"; "debug"]   (A "-g");
+    flag ["ocaml"; "link"]    (S clinkflags);
 
     if major >= 4 then
         flag ["ocaml"; "compile"; "bin_annot"] (A"-bin-annot");
@@ -598,12 +542,8 @@ dispatch begin function
         flag["c";"link"] (S [A"-cclib";A"-pg"]);
     end;
 
-    flag ["ocaml"; "link"]
-        (S clinkflags);
-
     dep ["compile"; "c"]
         headers;
-
     ()
 
 | _ -> ()

@@ -636,7 +636,7 @@ USE_NATIVEDYNLINK
 NATIVEDYNLINK
 EXTRAS
 OCAMLFLAGS
-MERCURIAL
+GIT
 OCAMLBUILD
 OCAMLYACC
 OCAMLLEX
@@ -1406,7 +1406,7 @@ Optional Features:
                           message size (and the memory consumed to send and
                           receive it) is not a possible bottleneck.
   --enable-parmap         Enables parmap through ocamlfind tree level
-                          parallelism in building and swappingr.
+                          parallelism in building and swapping.
   --enable-shared-hd      Force POY to support live broadcast of file contents
                           when running in parallel. The default is false.
   --enable-long-sequences Enable the analysis of sequences longer than 16383
@@ -3019,17 +3019,17 @@ fi
 
 # Check whether --with-version-number was given.
 if test "${with_version_number+set}" = set; then :
-  withval=$with_version_number; MERCURIAL="$withval"
+  withval=$with_version_number; GIT="$withval"
 else
-  # Extract the first word of "hg", so it can be a program name with args.
-set dummy hg; ac_word=$2
+  # Extract the first word of "git", so it can be a program name with args.
+set dummy git; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_prog_MERCURIAL+:} false; then :
+if ${ac_cv_prog_GIT+:} false; then :
   $as_echo_n "(cached) " >&6
 else
-  if test -n "$MERCURIAL"; then
-  ac_cv_prog_MERCURIAL="$MERCURIAL" # Let the user override the test.
+  if test -n "$GIT"; then
+  ac_cv_prog_GIT="$GIT" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
 for as_dir in $PATH
@@ -3038,7 +3038,7 @@ do
   test -z "$as_dir" && as_dir=.
     for ac_exec_ext in '' $ac_executable_extensions; do
   if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_MERCURIAL="`hg id -i`"
+    ac_cv_prog_GIT="`git rev-parse HEAD`"
     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -3046,13 +3046,13 @@ done
   done
 IFS=$as_save_IFS
 
-  test -z "$ac_cv_prog_MERCURIAL" && ac_cv_prog_MERCURIAL="`cat ./VERSION | awk '{print $NF}'`"
+  test -z "$ac_cv_prog_GIT" && ac_cv_prog_GIT="`cat ./VERSION | awk '{print $NF}'`"
 fi
 fi
-MERCURIAL=$ac_cv_prog_MERCURIAL
-if test -n "$MERCURIAL"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MERCURIAL" >&5
-$as_echo "$MERCURIAL" >&6; }
+GIT=$ac_cv_prog_GIT
+if test -n "$GIT"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $GIT" >&5
+$as_echo "$GIT" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -5530,7 +5530,7 @@ $as_echo "disabled " >&6; }
 esac
 
 CC_VERSION="`$CC --version`"
-POY_VERSION_NUMBER="$MERCURIAL"
+POY_VERSION_NUMBER="$GIT"
 
 ac_config_files="$ac_config_files Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml poy.mltop"
 

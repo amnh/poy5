@@ -75,7 +75,7 @@ AC_SUBST(OCAMLTOP)
 AC_SUBST(OCAMLLEX)
 AC_SUBST(OCAMLYACC)
 AC_SUBST(OCAMLBUILD)
-AC_SUBST(MERCURIAL)
+AC_SUBST(GIT)
 AC_SUBST(LIBS)
 AC_SUBST(OCAMLFLAGS)
 AC_SUBST(EXTRAS)
@@ -118,8 +118,8 @@ AC_ARG_WITH([extras], [AS_HELP_STRING([--with-extras],
 
 AC_ARG_WITH(version-number,
             [AS_HELP_STRING([--with-version-number], [Use the configuration provided version number (used for release purposes only).])],
-            [MERCURIAL="$withval"],
-            [AC_CHECK_PROG([MERCURIAL],[hg],[`hg id -i`],[`cat ./VERSION | awk '{print $NF}'`])])
+            [GIT="$withval"],
+            [AC_CHECK_PROG([GIT],[git],[`git rev-parse HEAD`],[`cat ./VERSION | awk '{print $NF}'`])])
 
 AC_ARG_WITH([ocaml-flags], 
             [AS_HELP_STRING([--with-ocaml-flags], [Add the following flags to the ocaml compiler.])],
@@ -154,7 +154,7 @@ AC_ARG_ENABLE([large-messages], [AS_HELP_STRING([--enable-large-messages],
               [USE_LARGE_MESSAGES="false"])
 
 AC_ARG_ENABLE([parmap], [AS_HELP_STRING([--enable-parmap], 
-              [Enables parmap through ocamlfind tree level parallelism in building and swappingr.])], 
+              [Enables parmap through ocamlfind tree level parallelism in building and swapping.])], 
               [if test x"$enableval" = x"no"; then
                     USE_PARMAP="false"
                 else
@@ -513,7 +513,7 @@ case ${OS_INFORMATION} in
 esac
 
 CC_VERSION="`$CC --version`"
-POY_VERSION_NUMBER="$MERCURIAL"
+POY_VERSION_NUMBER="$GIT"
 
 AC_CONFIG_FILES([Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml poy.mltop])
 AC_OUTPUT
