@@ -43,7 +43,7 @@ program's documentation), and then simply:
 
 cd src/
 ./configure
-make 
+make OCAMLPARAM=safe-string=0,_
 make install 
 
 By default the compilation scripts will try to use the ncurses, then the
@@ -52,7 +52,7 @@ following:
 
 cd src/
 ./configure --enable-interface=flat
-make
+make OCAMLPARAM=safe-string=0,_
 make install
 
 
@@ -65,7 +65,7 @@ also need MPI installed. To compile follow your MPI implementation
 recommendations, but a typical compilation would be:
 
 ./configure --enable-interface=flat --enable-mpi CC=mpicc
-make
+make OCAMLPARAM=safe-string=0,_
 make install
 
 Windows machines do not come with mpicc and setting this can be ignored. The
