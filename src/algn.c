@@ -3521,10 +3521,12 @@ algn_CAML_align_2d_bc (value *argv, int argn) {
 value 
 algn_CAML_align_3d (value s1, value s2, value s3, value c, value a, \
         value s1p, value s2p, value s3p, value uk) {
+    CAMLparam5(s1, s2, s3, c, a);
+    CAMLxparam4(s1p, s2p, s3p, uk);
     CAMLlocal1(res);
     res = algn_CAML_simple_3 (s1, s2, s3, c, a, uk);
     algn_CAML_backtrack_3d (s1, s2, s3, s1p, s2p, s3p, a, c);
-    return (res);
+    CAMLreturn(res);
 }
 
 value

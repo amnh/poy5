@@ -2125,7 +2125,7 @@ let get_unique_fn get_tree get_cost datas =
     | x -> x
 
 
-let get_unique = get_unique_fn (fun x -> x.tree) (fun x -> get_cost `Adjusted x)
+let get_unique xx = get_unique_fn (fun x -> x.tree) (fun x -> get_cost `Adjusted x) xx
 
 
 (** [build_tree_with_names tree pd]
