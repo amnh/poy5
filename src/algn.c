@@ -20,8 +20,7 @@
 /* Alignment libray in C */
 
 #include <stdio.h>
-#include <malloc.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include <limits.h>
 #define NDEBUG 1    //NDEBUG=1 also turns off assertions
 #include <assert.h>
