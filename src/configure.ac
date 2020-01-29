@@ -399,12 +399,6 @@ AS_IF([test $USEINTERFACE = "readline"],
                 [USEINTERFACE="flat"])])],
         [])
 
-# Check for malloc, if not there, this is most likely a Mac OS X.
-AC_CHECK_HEADER(malloc.h,[],
-                [AC_CHECK_HEADER("$PATH_PREFIX/include/malloc/malloc.h",
-                                [CFLAGS="-I $PATH_PREFIX/include/malloc/ $CFLAGS"],
-                                [AC_MSG_FAILURE([Could not find malloc.h])])])
-
 AC_CHECK_PROGS([OCAML],[ocaml])
 AC_CHECK_PROGS([OCAMLC], [ocamlc.opt ocamlc])
 AC_CHECK_PROGS([OCAMLYACC], [ocamlyacc.opt ocamlyacc])

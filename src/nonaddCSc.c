@@ -188,7 +188,7 @@ typedef vector CHARTYPE vect;
  * length;  and they can operate on two longs, four shorts, or eight chars. */
 
 #include <xmmintrin.h>
-#include <malloc.h>
+#include <stdlib.h>
 
 /* in bits */
 #define VECT_SIZE 64

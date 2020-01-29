@@ -4109,11 +4109,6 @@ else
 ac_fn_c_check_header_mongrel "$LINENO" ""$PATH_PREFIX/include/malloc/malloc.h"" "$as_ac_Header" "$ac_includes_default"
 if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
   CFLAGS="-I $PATH_PREFIX/include/malloc/ $CFLAGS"
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Could not find malloc.h
-See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 

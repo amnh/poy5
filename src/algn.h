@@ -24,8 +24,7 @@
 #define ALGN_H 1
 
 #include <stdio.h>
-#include <malloc.h>
-#include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
